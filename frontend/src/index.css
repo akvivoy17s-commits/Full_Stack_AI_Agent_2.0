@@ -1,0 +1,32 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/space-grotesk';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html { scroll-behavior: smooth; scroll-padding-top: 88px; }
+body { @apply bg-bg font-sans text-zinc-200 antialiased; margin: 0; }
+::selection { background: rgba(229, 9, 20, .45); }
+*:focus-visible { outline: 2px solid #E50914; outline-offset: 2px; border-radius: 6px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #2a2a2e; border-radius: 8px; }
+
+@layer components {
+  .glass { @apply border border-white/10 bg-white/[0.04] backdrop-blur-xl; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition duration-200 disabled:cursor-not-allowed disabled:opacity-40; }
+  .btn-primary { @apply btn bg-accent text-white shadow-glow hover:bg-accentSoft active:scale-[.98]; }
+  .btn-ghost { @apply btn border border-white/10 bg-white/[0.03] text-zinc-200 hover:border-white/25 hover:bg-white/[0.07]; }
+  .field { @apply w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-accent/60 focus:outline-none; }
+  .label { @apply mb-1 block text-xs font-medium text-zinc-400; }
+  .chip { @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs; }
+}
+
+.bg-grid {
+  background-image: linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at 50% 30%, #000 20%, transparent 75%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

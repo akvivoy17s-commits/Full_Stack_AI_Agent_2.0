@@ -1,0 +1,42 @@
+[
+ {
+  "check": "1 compileall backend+tests",
+  "status": "PASS",
+  "detail": "all .py compile"
+ },
+ {
+  "check": "2 intent classifier (16 prompts)",
+  "status": "PASS",
+  "detail": "16/16"
+ },
+ {
+  "check": "3 stack resolver + fallback + notes",
+  "status": "PASS",
+  "detail": "django kept, 3 named-tech notes, payments note, clean todo"
+ },
+ {
+  "check": "4 planner.layout_for agrees with intent",
+  "status": "PASS",
+  "detail": "6/6"
+ },
+ {
+  "check": "5 app_engine entities + generated App.tsx type-check",
+  "status": "PASS",
+  "detail": "3 variants, 0 tsc errors (React types stubbed)"
+ },
+ {
+  "check": "6 selfrepair window/rollback + restore_static",
+  "status": "PASS",
+  "detail": "window ok, rollback w/o recheck, restore_static idempotent"
+ },
+ {
+  "check": "7 generated client.ts (23 stacks) tsc --strict",
+  "status": "PASS",
+  "detail": "23 clients, 0 failed"
+ },
+ {
+  "check": "8 no real secrets outside tests",
+  "status": "PASS",
+  "detail": "none"
+ }
+]

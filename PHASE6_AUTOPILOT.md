@@ -1,0 +1,5 @@
+# Phase 6 - Self-repair for autobuild failures
+- BUG fixed (selfrepair._window): the 30-line window was truncated to 1800 chars from the START, so generated files with very long lines (app_engine App.tsx has 1200+ char lines) lost the error line and the LLM patched blind. Now budget-based and always contains the error line (verified: old window missed it, new one has it).
+- Token/time: after a rollback, repair_files re-ran the full check (= a full npm build on React projects). Files are restored, so the state equals the pre-round state; it now reuses it (1 build less per rolled-back round).
+- Zero-token repair: react_engine.restore_static() rewrites missing scaffold files (vite.config.ts, tsconfig.json, main.tsx, lib/motion.ts, lib/MotionEffects.tsx, vite-env.d.ts) from templates; called in orchestrator.collect_issues before the build (guards the "missing ./lib/MotionEffects" class of error without an LLM call).
+- Existing 10 tests in tests/test_phase6_selfrepair.py pass (run standalone). New tests/test_phase6_autobuild_repair.py (4). restore_static + window + rollback verified standalone; pytest/pydantic not installed here so the suite itself was NOT run.

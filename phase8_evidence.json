@@ -1,0 +1,74 @@
+{
+ "py_syntax": {
+  "files": 137,
+  "errors": []
+ },
+ "missing_internal_imports": [],
+ "import_third_party_missing": {
+  "httpx": 8,
+  "fastapi": 7
+ },
+ "import_real_errors": [],
+ "secret_like_strings_in": [
+  "./tests/test_phase5.py",
+  "./tests/test_phase2_runner.py",
+  "./tests/test_phase1_backend.py",
+  "./tests/test_security_phase1.py",
+  "./tests/test_spec_project.py"
+ ],
+ "dangerous_calls": [],
+ "env_file_committed": false,
+ "js": {
+  "files": 21,
+  "errors": [],
+  "node": true
+ },
+ "ts_syntax": {
+  "files": 60,
+  "errors": [],
+  "checked": true
+ },
+ "frontend_calls_without_backend_route": [],
+ "frontend_calls": 27,
+ "backend_routes": 45,
+ "runner_allowlist": {
+  "node_check": true,
+  "npm_build": true,
+  "python": true,
+  "pytest": true,
+  "ruff": true,
+  "go_vet": true,
+  "go_test": true,
+  "shell_injection_blocked": true
+ },
+ "provider": {
+  "ollama": true,
+  "openai_compatible": true,
+  "keys_from_env": true,
+  "retry": true,
+  "timeout": true
+ },
+ "files_present": {
+  "backend/agent/requirements.py": true,
+  "backend/agent/progress.py": true,
+  "backend/agent/selfrepair.py": true,
+  "backend/memory/project_store.py": true,
+  "backend/spec/memory.py": true,
+  "backend/tools/project_files.py": true,
+  "backend/tools/redact.py": true,
+  "tests/test_phase7_e2e.py": true,
+  ".env.example": true,
+  "README.md": true
+ },
+ "path_guard": true,
+ "repair_bounded": true,
+ "pytest": {
+  "ran": false,
+  "why": "pytest/fastapi/httpx not installed"
+ },
+ "frontend": {
+  "ran": false,
+  "why": "frontend/node_modules missing (npm ci not run)"
+ },
+ "ollama_reachable": false
+}

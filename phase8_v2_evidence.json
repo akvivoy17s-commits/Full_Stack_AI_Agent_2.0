@@ -1,0 +1,866 @@
+{
+"express|sqlite|college|nocache": [
+"PASS",
+"31 files, 32 routes, static checks clean"
+],
+"express|sqlite|college|redis": [
+"PASS",
+"34 files, 32 routes, static checks clean"
+],
+"express|sqlite|store|nocache": [
+"PASS",
+"32 files, 23 routes, static checks clean"
+],
+"express|sqlite|store|redis": [
+"PASS",
+"35 files, 23 routes, static checks clean"
+],
+"express|postgresql|college|nocache": [
+"PASS",
+"31 files, 32 routes, static checks clean"
+],
+"express|postgresql|college|redis": [
+"PASS",
+"34 files, 32 routes, static checks clean"
+],
+"express|postgresql|store|nocache": [
+"PASS",
+"32 files, 23 routes, static checks clean"
+],
+"express|postgresql|store|redis": [
+"PASS",
+"35 files, 23 routes, static checks clean"
+],
+"express|mysql|college|nocache": [
+"PASS",
+"31 files, 32 routes, static checks clean"
+],
+"express|mysql|college|redis": [
+"PASS",
+"34 files, 32 routes, static checks clean"
+],
+"express|mysql|store|nocache": [
+"PASS",
+"32 files, 23 routes, static checks clean"
+],
+"express|mysql|store|redis": [
+"PASS",
+"35 files, 23 routes, static checks clean"
+],
+"express|mongodb|college|nocache": [
+"PASS",
+"30 files, 32 routes, static checks clean"
+],
+"express|mongodb|college|redis": [
+"PASS",
+"33 files, 32 routes, static checks clean"
+],
+"express|mongodb|store|nocache": [
+"PARTIAL",
+"30 files ok; not_generated=['checkout']"
+],
+"express|mongodb|store|redis": [
+"PARTIAL",
+"33 files ok; not_generated=['checkout']"
+],
+"express|mssql|college|nocache": [
+"PASS",
+"31 files, 32 routes, static checks clean"
+],
+"express|mssql|college|redis": [
+"PASS",
+"34 files, 32 routes, static checks clean"
+],
+"express|mssql|store|nocache": [
+"PASS",
+"32 files, 23 routes, static checks clean"
+],
+"express|mssql|store|redis": [
+"PASS",
+"35 files, 23 routes, static checks clean"
+],
+"express|none|college|nocache": [
+"PASS",
+"22 files, 26 routes, static checks clean"
+],
+"express|none|college|redis": [
+"PASS",
+"22 files, 26 routes, static checks clean"
+],
+"express|none|store|nocache": [
+"PARTIAL",
+"22 files ok; not_generated=['checkout']"
+],
+"express|none|store|redis": [
+"PARTIAL",
+"22 files ok; not_generated=['checkout']"
+],
+"nestjs|sqlite|college|nocache": [
+"PASS",
+"47 files, 32 routes, static checks clean"
+],
+"nestjs|sqlite|college|redis": [
+"PASS",
+"50 files, 32 routes, static checks clean"
+],
+"nestjs|sqlite|store|nocache": [
+"PASS",
+"52 files, 23 routes, static checks clean"
+],
+"nestjs|sqlite|store|redis": [
+"PASS",
+"55 files, 23 routes, static checks clean"
+],
+"nestjs|postgresql|college|nocache": [
+"PASS",
+"47 files, 32 routes, static checks clean"
+],
+"nestjs|postgresql|college|redis": [
+"PASS",
+"50 files, 32 routes, static checks clean"
+],
+"nestjs|postgresql|store|nocache": [
+"PASS",
+"52 files, 23 routes, static checks clean"
+],
+"nestjs|postgresql|store|redis": [
+"PASS",
+"55 files, 23 routes, static checks clean"
+],
+"nestjs|mysql|college|nocache": [
+"PASS",
+"47 files, 32 routes, static checks clean"
+],
+"nestjs|mysql|college|redis": [
+"PASS",
+"50 files, 32 routes, static checks clean"
+],
+"nestjs|mysql|store|nocache": [
+"PASS",
+"52 files, 23 routes, static checks clean"
+],
+"nestjs|mysql|store|redis": [
+"PASS",
+"55 files, 23 routes, static checks clean"
+],
+"nestjs|mongodb|college|nocache": [
+"PASS",
+"45 files, 32 routes, static checks clean"
+],
+"nestjs|mongodb|college|redis": [
+"PASS",
+"48 files, 32 routes, static checks clean"
+],
+"nestjs|mongodb|store|nocache": [
+"PARTIAL",
+"45 files ok; not_generated=['checkout']"
+],
+"nestjs|mongodb|store|redis": [
+"PARTIAL",
+"48 files ok; not_generated=['checkout']"
+],
+"nestjs|mssql|college|nocache": [
+"PASS",
+"47 files, 32 routes, static checks clean"
+],
+"nestjs|mssql|college|redis": [
+"PASS",
+"50 files, 32 routes, static checks clean"
+],
+"nestjs|mssql|store|nocache": [
+"PASS",
+"52 files, 23 routes, static checks clean"
+],
+"nestjs|mssql|store|redis": [
+"PASS",
+"55 files, 23 routes, static checks clean"
+],
+"nestjs|none|college|nocache": [
+"PASS",
+"31 files, 26 routes, static checks clean"
+],
+"nestjs|none|college|redis": [
+"PASS",
+"31 files, 26 routes, static checks clean"
+],
+"nestjs|none|store|nocache": [
+"PARTIAL",
+"31 files ok; not_generated=['checkout']"
+],
+"nestjs|none|store|redis": [
+"PARTIAL",
+"31 files ok; not_generated=['checkout']"
+],
+"fastapi|sqlite|college|nocache": [
+"PASS",
+"41 files, 32 routes, static checks clean"
+],
+"fastapi|sqlite|college|redis": [
+"PASS",
+"44 files, 32 routes, static checks clean"
+],
+"fastapi|sqlite|store|nocache": [
+"PASS",
+"43 files, 23 routes, static checks clean"
+],
+"fastapi|sqlite|store|redis": [
+"PASS",
+"46 files, 23 routes, static checks clean"
+],
+"fastapi|postgresql|college|nocache": [
+"PASS",
+"41 files, 32 routes, static checks clean"
+],
+"fastapi|postgresql|college|redis": [
+"PASS",
+"44 files, 32 routes, static checks clean"
+],
+"fastapi|postgresql|store|nocache": [
+"PASS",
+"43 files, 23 routes, static checks clean"
+],
+"fastapi|postgresql|store|redis": [
+"PASS",
+"46 files, 23 routes, static checks clean"
+],
+"fastapi|mysql|college|nocache": [
+"PASS",
+"41 files, 32 routes, static checks clean"
+],
+"fastapi|mysql|college|redis": [
+"PASS",
+"44 files, 32 routes, static checks clean"
+],
+"fastapi|mysql|store|nocache": [
+"PASS",
+"43 files, 23 routes, static checks clean"
+],
+"fastapi|mysql|store|redis": [
+"PASS",
+"46 files, 23 routes, static checks clean"
+],
+"fastapi|mongodb|college|nocache": [
+"PASS",
+"37 files, 32 routes, static checks clean"
+],
+"fastapi|mongodb|college|redis": [
+"PASS",
+"40 files, 32 routes, static checks clean"
+],
+"fastapi|mongodb|store|nocache": [
+"PARTIAL",
+"37 files ok; not_generated=['checkout']"
+],
+"fastapi|mongodb|store|redis": [
+"PARTIAL",
+"40 files ok; not_generated=['checkout']"
+],
+"fastapi|mssql|college|nocache": [
+"PASS",
+"41 files, 32 routes, static checks clean"
+],
+"fastapi|mssql|college|redis": [
+"PASS",
+"44 files, 32 routes, static checks clean"
+],
+"fastapi|mssql|store|nocache": [
+"PASS",
+"43 files, 23 routes, static checks clean"
+],
+"fastapi|mssql|store|redis": [
+"PASS",
+"46 files, 23 routes, static checks clean"
+],
+"fastapi|none|college|nocache": [
+"PASS",
+"25 files, 26 routes, static checks clean"
+],
+"fastapi|none|college|redis": [
+"PASS",
+"25 files, 26 routes, static checks clean"
+],
+"fastapi|none|store|nocache": [
+"PARTIAL",
+"25 files ok; not_generated=['checkout']"
+],
+"fastapi|none|store|redis": [
+"PARTIAL",
+"25 files ok; not_generated=['checkout']"
+],
+"flask|sqlite|college|nocache": [
+"PASS",
+"41 files, 32 routes, static checks clean"
+],
+"flask|sqlite|college|redis": [
+"PASS",
+"44 files, 32 routes, static checks clean"
+],
+"flask|sqlite|store|nocache": [
+"PASS",
+"43 files, 23 routes, static checks clean"
+],
+"flask|sqlite|store|redis": [
+"PASS",
+"46 files, 23 routes, static checks clean"
+],
+"flask|postgresql|college|nocache": [
+"PASS",
+"41 files, 32 routes, static checks clean"
+],
+"flask|postgresql|college|redis": [
+"PASS",
+"44 files, 32 routes, static checks clean"
+],
+"flask|postgresql|store|nocache": [
+"PASS",
+"43 files, 23 routes, static checks clean"
+],
+"flask|postgresql|store|redis": [
+"PASS",
+"46 files, 23 routes, static checks clean"
+],
+"flask|mysql|college|nocache": [
+"PASS",
+"41 files, 32 routes, static checks clean"
+],
+"flask|mysql|college|redis": [
+"PASS",
+"44 files, 32 routes, static checks clean"
+],
+"flask|mysql|store|nocache": [
+"PASS",
+"43 files, 23 routes, static checks clean"
+],
+"flask|mysql|store|redis": [
+"PASS",
+"46 files, 23 routes, static checks clean"
+],
+"flask|mongodb|college|nocache": [
+"PASS",
+"37 files, 32 routes, static checks clean"
+],
+"flask|mongodb|college|redis": [
+"PASS",
+"40 files, 32 routes, static checks clean"
+],
+"flask|mongodb|store|nocache": [
+"PARTIAL",
+"37 files ok; not_generated=['checkout']"
+],
+"flask|mongodb|store|redis": [
+"PARTIAL",
+"40 files ok; not_generated=['checkout']"
+],
+"flask|mssql|college|nocache": [
+"PASS",
+"41 files, 32 routes, static checks clean"
+],
+"flask|mssql|college|redis": [
+"PASS",
+"44 files, 32 routes, static checks clean"
+],
+"flask|mssql|store|nocache": [
+"PASS",
+"43 files, 23 routes, static checks clean"
+],
+"flask|mssql|store|redis": [
+"PASS",
+"46 files, 23 routes, static checks clean"
+],
+"flask|none|college|nocache": [
+"PASS",
+"25 files, 26 routes, static checks clean"
+],
+"flask|none|college|redis": [
+"PASS",
+"25 files, 26 routes, static checks clean"
+],
+"flask|none|store|nocache": [
+"PARTIAL",
+"25 files ok; not_generated=['checkout']"
+],
+"flask|none|store|redis": [
+"PARTIAL",
+"25 files ok; not_generated=['checkout']"
+],
+"django|sqlite|college|nocache": [
+"PASS",
+"43 files, 32 routes, static checks clean"
+],
+"django|sqlite|college|redis": [
+"PASS",
+"46 files, 32 routes, static checks clean"
+],
+"django|sqlite|store|nocache": [
+"PASS",
+"45 files, 23 routes, static checks clean"
+],
+"django|sqlite|store|redis": [
+"PASS",
+"48 files, 23 routes, static checks clean"
+],
+"django|postgresql|college|nocache": [
+"PASS",
+"43 files, 32 routes, static checks clean"
+],
+"django|postgresql|college|redis": [
+"PASS",
+"46 files, 32 routes, static checks clean"
+],
+"django|postgresql|store|nocache": [
+"PASS",
+"45 files, 23 routes, static checks clean"
+],
+"django|postgresql|store|redis": [
+"PASS",
+"48 files, 23 routes, static checks clean"
+],
+"django|mysql|college|nocache": [
+"PASS",
+"43 files, 32 routes, static checks clean"
+],
+"django|mysql|college|redis": [
+"PASS",
+"46 files, 32 routes, static checks clean"
+],
+"django|mysql|store|nocache": [
+"PASS",
+"45 files, 23 routes, static checks clean"
+],
+"django|mysql|store|redis": [
+"PASS",
+"48 files, 23 routes, static checks clean"
+],
+"django|mongodb|college|nocache": [
+"N/A",
+"not selectable: {'fields': ['backend', 'database'], 'field': 'backend', 'msg': \"Django's ORM has no first-"
+],
+"django|mongodb|college|redis": [
+"N/A",
+"not selectable: {'fields': ['backend', 'database'], 'field': 'backend', 'msg': \"Django's ORM has no first-"
+],
+"django|mongodb|store|nocache": [
+"N/A",
+"not selectable: {'fields': ['backend', 'database'], 'field': 'backend', 'msg': \"Django's ORM has no first-"
+],
+"django|mongodb|store|redis": [
+"N/A",
+"not selectable: {'fields': ['backend', 'database'], 'field': 'backend', 'msg': \"Django's ORM has no first-"
+],
+"django|mssql|college|nocache": [
+"PASS",
+"43 files, 32 routes, static checks clean"
+],
+"django|mssql|college|redis": [
+"PASS",
+"46 files, 32 routes, static checks clean"
+],
+"django|mssql|store|nocache": [
+"PASS",
+"45 files, 23 routes, static checks clean"
+],
+"django|mssql|store|redis": [
+"PASS",
+"48 files, 23 routes, static checks clean"
+],
+"django|none|college|nocache": [
+"PASS",
+"30 files, 26 routes, static checks clean"
+],
+"django|none|college|redis": [
+"PASS",
+"30 files, 26 routes, static checks clean"
+],
+"django|none|store|nocache": [
+"PARTIAL",
+"30 files ok; not_generated=['checkout']"
+],
+"django|none|store|redis": [
+"PARTIAL",
+"30 files ok; not_generated=['checkout']"
+],
+"spring|sqlite|college|nocache": [
+"PASS",
+"49 files, 32 routes, static checks clean"
+],
+"spring|sqlite|college|redis": [
+"PASS",
+"53 files, 32 routes, static checks clean"
+],
+"spring|sqlite|store|nocache": [
+"PASS",
+"54 files, 23 routes, static checks clean"
+],
+"spring|sqlite|store|redis": [
+"PASS",
+"58 files, 23 routes, static checks clean"
+],
+"spring|postgresql|college|nocache": [
+"PASS",
+"47 files, 32 routes, static checks clean"
+],
+"spring|postgresql|college|redis": [
+"PASS",
+"51 files, 32 routes, static checks clean"
+],
+"spring|postgresql|store|nocache": [
+"PASS",
+"52 files, 23 routes, static checks clean"
+],
+"spring|postgresql|store|redis": [
+"PASS",
+"56 files, 23 routes, static checks clean"
+],
+"spring|mysql|college|nocache": [
+"PASS",
+"47 files, 32 routes, static checks clean"
+],
+"spring|mysql|college|redis": [
+"PASS",
+"51 files, 32 routes, static checks clean"
+],
+"spring|mysql|store|nocache": [
+"PASS",
+"52 files, 23 routes, static checks clean"
+],
+"spring|mysql|store|redis": [
+"PASS",
+"56 files, 23 routes, static checks clean"
+],
+"spring|mongodb|college|nocache": [
+"PASS",
+"45 files, 32 routes, static checks clean"
+],
+"spring|mongodb|college|redis": [
+"PASS",
+"49 files, 32 routes, static checks clean"
+],
+"spring|mongodb|store|nocache": [
+"PARTIAL",
+"45 files ok; not_generated=['checkout']"
+],
+"spring|mongodb|store|redis": [
+"PARTIAL",
+"49 files ok; not_generated=['checkout']"
+],
+"spring|mssql|college|nocache": [
+"PASS",
+"47 files, 32 routes, static checks clean"
+],
+"spring|mssql|college|redis": [
+"PASS",
+"51 files, 32 routes, static checks clean"
+],
+"spring|mssql|store|nocache": [
+"PASS",
+"52 files, 23 routes, static checks clean"
+],
+"spring|mssql|store|redis": [
+"PASS",
+"56 files, 23 routes, static checks clean"
+],
+"spring|none|college|nocache": [
+"PASS",
+"35 files, 26 routes, static checks clean"
+],
+"spring|none|college|redis": [
+"PASS",
+"35 files, 26 routes, static checks clean"
+],
+"spring|none|store|nocache": [
+"PARTIAL",
+"35 files ok; not_generated=['checkout']"
+],
+"spring|none|store|redis": [
+"PARTIAL",
+"35 files ok; not_generated=['checkout']"
+],
+"go|sqlite|college|nocache": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|sqlite|college|redis": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|sqlite|store|nocache": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|sqlite|store|redis": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|postgresql|college|nocache": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|postgresql|college|redis": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|postgresql|store|nocache": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|postgresql|store|redis": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|mysql|college|nocache": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|mysql|college|redis": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|mysql|store|nocache": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|mysql|store|redis": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|mongodb|college|nocache": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|mongodb|college|redis": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|mongodb|store|nocache": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|mongodb|store|redis": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|mssql|college|nocache": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|mssql|college|redis": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|mssql|store|nocache": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|mssql|store|redis": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|none|college|nocache": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|none|college|redis": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|none|store|nocache": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"go|none|store|redis": [
+"PLANNED",
+"gaps: Go (net/http) generator is planned (phase 4)."
+],
+"aspnet|sqlite|college|nocache": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|sqlite|college|redis": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|sqlite|store|nocache": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|sqlite|store|redis": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|postgresql|college|nocache": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|postgresql|college|redis": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|postgresql|store|nocache": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|postgresql|store|redis": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|mysql|college|nocache": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|mysql|college|redis": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|mysql|store|nocache": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|mysql|store|redis": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|mongodb|college|nocache": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|mongodb|college|redis": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|mongodb|store|nocache": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|mongodb|store|redis": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|mssql|college|nocache": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|mssql|college|redis": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|mssql|store|nocache": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|mssql|store|redis": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|none|college|nocache": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|none|college|redis": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|none|store|nocache": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"aspnet|none|store|redis": [
+"PLANNED",
+"gaps: C# + ASP.NET Core generator is planned (phase 4)."
+],
+"laravel|sqlite|college|nocache": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|sqlite|college|redis": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|sqlite|store|nocache": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|sqlite|store|redis": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|postgresql|college|nocache": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|postgresql|college|redis": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|postgresql|store|nocache": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|postgresql|store|redis": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|mysql|college|nocache": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|mysql|college|redis": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|mysql|store|nocache": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|mysql|store|redis": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|mongodb|college|nocache": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|mongodb|college|redis": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|mongodb|store|nocache": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|mongodb|store|redis": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|mssql|college|nocache": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|mssql|college|redis": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|mssql|store|nocache": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|mssql|store|redis": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|none|college|nocache": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|none|college|redis": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|none|store|nocache": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+],
+"laravel|none|store|redis": [
+"PLANNED",
+"gaps: PHP + Laravel generator is planned (phase 4)."
+]
+}

@@ -1,0 +1,19 @@
+/* dashboard layout: sidebar shell + panels, KPI cards, tables, chips */
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.shell{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;height:100vh;padding:28px 18px;border-right:1px solid color-mix(in srgb,var(--fg) 10%,transparent);background:color-mix(in srgb,var(--fg) 3%,var(--bg));display:flex;flex-direction:column;gap:28px}
+.side ul{flex-direction:column;gap:4px}
+.side a:not(.brand){display:block;padding:.6em .9em;border-radius:calc(var(--radius)*.6);color:var(--muted)}
+.side a:not(.brand):hover,.side a:not(.brand):focus-visible{background:color-mix(in srgb,var(--primary) 18%,transparent);color:var(--fg)}
+.dash-main{min-width:0;padding:0 clamp(16px,3vw,40px)}
+.dash-main .sec{padding:clamp(28px,4vw,48px) 0}
+.dash-main .wrap{width:100%}
+.panel{background:color-mix(in srgb,var(--fg) 5%,transparent);border:1px solid color-mix(in srgb,var(--fg) 10%,transparent);border-radius:var(--radius);padding:calc(var(--space)*3)}
+.kpi{background:color-mix(in srgb,var(--fg) 5%,transparent);border:1px solid color-mix(in srgb,var(--fg) 10%,transparent);border-radius:var(--radius);padding:calc(var(--space)*3)}
+.kpi b{display:block;font-family:var(--font-head);font-size:2rem;color:var(--fg)}
+.chip{display:inline-flex;align-items:center;gap:.4em;padding:.15em .7em;border-radius:999px;font-size:.8rem;border:1px solid color-mix(in srgb,var(--fg) 20%,transparent)}
+.tbl-wrap{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;min-width:520px}
+.tbl th,.tbl td{text-align:left;padding:.75em 1em;border-bottom:1px solid color-mix(in srgb,var(--fg) 10%,transparent)}
+.tbl th{color:var(--muted);font-weight:600;font-size:.85rem}
+@media(max-width:900px){.shell{grid-template-columns:minmax(0,1fr)}.side{position:static;height:auto;flex-direction:row;align-items:center;flex-wrap:wrap;padding:14px 16px;border-right:0;border-bottom:1px solid color-mix(in srgb,var(--fg) 10%,transparent)}.side ul{flex-direction:row;flex-wrap:wrap;display:flex}}

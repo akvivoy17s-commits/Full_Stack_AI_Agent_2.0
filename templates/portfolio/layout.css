@@ -1,0 +1,11 @@
+/* portfolio layout: editorial type, project cards, tags */
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+h1{font-size:clamp(2.8rem,8vw,6rem);letter-spacing:-.03em}
+.sec{padding:clamp(72px,12vw,150px) 0}
+.nav .brand{letter-spacing:.04em}
+.nav ul{gap:32px}
+.tag{display:inline-block;padding:.2em .8em;margin:0 .4em .4em 0;border-radius:999px;font-size:.8rem;border:1px solid color-mix(in srgb,var(--fg) 22%,transparent);color:var(--muted)}
+.work-art{aspect-ratio:16/10;border-radius:calc(var(--radius)*.7);background:linear-gradient(135deg,var(--primary),var(--accent));margin-bottom:calc(var(--space)*2)}
+form label{display:block;font-size:.9rem;margin:1em 0 .3em}
+form input,form textarea{width:100%;padding:.8em 1em;border-radius:calc(var(--radius)*.6);border:1px solid color-mix(in srgb,var(--fg) 25%,transparent);background:color-mix(in srgb,var(--fg) 5%,transparent);color:var(--fg);font:inherit}
+form input:focus-visible,form textarea:focus-visible,.btn:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
