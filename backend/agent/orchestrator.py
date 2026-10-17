@@ -4,7 +4,7 @@ import json
 from backend import config
 from backend.agent import planner, context, progress, requirements, selfrepair
 from backend.storage import db
-from backend.engines import code_engine, react_engine, repair_engine
+from backend.engines import code_engine, react_engine, repair_engine, quality_engine
 from backend.memory import project_store, history
 from backend.tools import browser, screenshots, vision
 from backend.tools.project_files import ProjectFiles
@@ -61,6 +61,7 @@ def collect_issues(pf, state, with_browser: bool, want_images: bool = False):
             issues += [{"sid": sid, "msg": e} for e in validate_css(css) if "reduced-motion" not in e]
         checks.append({"name": "section markup + CSS", "viewport": "static", "status": "failed" if issues else "passed", "detail": f"{len(issues)} issue(s)"})
     issues += selfrepair.static_issues(pf)                 # file syntax checks (JS via node, Python/JSON in-process)
+    issues += quality_engine.inspect(pf, state)          # missing assets, fake placeholders and dead forms
     extra = {"report": {"checks": checks, "a11y": [], "notes": []}, "images": {}}
     serve_dir, note = pf.root, "skipped"
     if state.plan.get("stack") == "react":

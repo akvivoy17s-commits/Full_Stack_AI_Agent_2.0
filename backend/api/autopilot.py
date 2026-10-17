@@ -22,7 +22,7 @@ from backend.agent.intent import APP_PROMPT as _APP_PROMPT, MARKETING_PROMPT as 
 
 
 class AutoBuildRequest(BaseModel):
-    prompt: str = Field(min_length=5, max_length=6000)
+    prompt: str = Field(min_length=5, max_length=15000)
 
     @field_validator("prompt")
     @classmethod

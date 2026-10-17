@@ -95,3 +95,9 @@ def test_autobuild_prompt_is_trimmed_and_control_characters_are_rejected():
     assert AutoBuildRequest(prompt="  Create a notes app  ").prompt == "Create a notes app"
     with pytest.raises(ValueError):
         AutoBuildRequest(prompt="Create a notes app\x00")
+
+def test_autobuild_prompt_accepts_up_to_15000_characters():
+    assert len(AutoBuildRequest(prompt="x" * 15000).prompt) == 15000
+    with pytest.raises(ValueError):
+        AutoBuildRequest(prompt="x" * 15001)
+

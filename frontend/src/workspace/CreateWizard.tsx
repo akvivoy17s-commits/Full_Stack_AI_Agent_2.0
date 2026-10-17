@@ -87,11 +87,11 @@ export default function CreateWizard({ onCreate, onAutoBuild }: Props) {
           <div><p className="text-sm font-semibold text-white">Autopilot builder</p><p className="mt-1 text-xs text-zinc-400">One prompt. The agent chooses a supported stack, generates, builds and checks it.</p></div>
         </div>
         <label className="label" htmlFor="autopilot-prompt">Describe the complete website or web app</label>
-        <textarea id="autopilot-prompt" rows={7} maxLength={6000} className="field resize-y" value={brief} autoFocus
+        <textarea id="autopilot-prompt" rows={7} maxLength={15000} className="field resize-y" value={brief} autoFocus
           onChange={(e) => setBriefText(e.target.value)}
           onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && briefOk && !busy) void createAutomatically() }}
           placeholder="Example: Build a polished todo app with projects, priorities, due dates, search, dark mode, add/edit/delete, and saved tasks. Make it responsive and verify the production build." />
-        <div className="mt-1 flex items-center justify-between text-xs text-zinc-500"><span>Ctrl + Enter to build</span><span>{brief.length}/6000</span></div>
+        <div className="mt-1 flex items-center justify-between text-xs text-zinc-500"><span>Ctrl + Enter to build</span><span>{brief.length}/15000</span></div>
         {!brief.trim() && <div className="mt-3 flex flex-wrap gap-2" aria-label="Prompt examples">{EXAMPLES.map((x) => <button key={x.label} type="button" className="chip border-white/15 text-zinc-300 hover:border-white/40" onClick={() => setBriefText(x.text)}>{x.label}</button>)}</div>}
       </section>
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs leading-5 text-zinc-400">

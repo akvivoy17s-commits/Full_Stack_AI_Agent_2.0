@@ -141,7 +141,12 @@ def _enhance_shell(html: str, state) -> str:
     desc = str(state.plan.get("tagline") or state.plan.get("description") or "").strip()
     meta = f'<meta name="description" content="{escape(desc[:160], quote=True)}">\n' if desc else ""
     meta += f'<meta name="theme-color" content="{escape(str(((state.design or {}).get("colors") or {}).get("bg") or "#0b0b14"), quote=True)}">\n'
-    return html.replace("<title>", meta + "<title>", 1)
+    html = html.replace("<title>", meta + "<title>", 1)
+    if animation_engine.wants_3d(getattr(state, "brief", "")) and state.plan.get("stack") != "react":
+        script = '<script type="module" src="js/three-hero.js"></script>'
+        if script not in html:
+            html = html.replace("</body>", script + "\n</body>", 1)
+    return html
 
 
 def scaffold(pf, state) -> None:
@@ -242,6 +247,14 @@ def normalize_existing_ids(pf, state) -> int:
 
 def _insert(pf, state, sid: str, html: str, css: str) -> None:
     html = clean_html(html)
+    # Three.js section scripts are stripped from model output. Mount the existing local runtime
+    # deterministically only when the brief explicitly requests 3D.
+    if sid == "hero" and animation_engine.wants_3d(getattr(state, "brief", "")):
+        if not re.search(r"""\bdata-three-hero\b|data-3d\s*=\s*['"]three-hero['"]""", html, re.I):
+            m = re.search(r"<([a-z][a-z0-9-]*)\b([^>]*)>", html, re.I)
+            if m:
+                tag, attrs = m.group(1), m.group(2)
+                html = html[:m.start()] + f"<{tag}{attrs} data-three-hero>" + html[m.end():]
     html = dedupe_ids(html, set(state.plan.get("sections", [])), sid)
     if state.plan.get("stack") == "react":
         from backend.engines import react_engine
@@ -272,7 +285,13 @@ def generate_sections(pf, state, force: bool = False) -> dict:
             continue                                   # resume: never regenerate finished sections
         context.progress("code", f"Generating section '{sid}' ({n}/{len(secs)})")
         try:
-            user = (f"{state.compact(900)}\nSECTION: {sid}\nHINT: {prompts.HINTS.get(sid, 'rich, detailed section')}"
+            hint = prompts.HINTS.get(sid, 'rich, detailed section')
+            if sid == "hero" and animation_engine.wants_3d(state.brief):
+                primary = ((state.design or {}).get("colors") or {}).get("primary", "#7c5cff")
+                hint += (f" 3D IS REQUIRED BY THE USER: add data-three-hero and "
+                         f'data-three-color="{primary}" to the visual wrapper. Keep all hero text and buttons '
+                         "as real accessible DOM elements; the canvas is decorative. Include CSS fallback styling.")
+            user = (f"{state.compact(900)}\nSECTION: {sid}\nHINT: {hint}"
                     f"\nDONE: {','.join(state.sections_done)}")
             data, u = llm.call_json("section", prompts.SECTION, user, None, config.SECTION_MAX_TOKENS, schema=schemas.SectionOut)
             total["in"] += u["in"]

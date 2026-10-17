@@ -198,6 +198,13 @@ def restore_static(pf) -> list[str]:
     for rel, text in (("src/components/SectionBoundary.tsx", SECTION_BOUNDARY_TSX), ("src/styles/shell.css", SHELL_CSS)):
         if not (pf.root / rel).is_file():
             pf.write(rel, text)
+    runtime_path = "src/lib/three-hero.js"
+    if not (pf.root / runtime_path).is_file():
+        runtime = animation_engine._template("three-hero.js").replace(
+            "if (typeof document !== 'undefined') initThreeHero();", ""
+        )
+        pf.write(runtime_path, runtime)
+        restored.append(runtime_path)
     return restored
 
 
@@ -212,6 +219,10 @@ def scaffold(pf, state) -> None:
     layout = state.plan.get("layout", "landing")
     for rel in STATIC:
         pf.write(rel, ce._tpl(f"react/{rel}"))
+    runtime = animation_engine._template("three-hero.js").replace(
+        "if (typeof document !== 'undefined') initThreeHero();", ""
+    )
+    pf.write("src/lib/three-hero.js", runtime)
     pf.write("package.json", json.dumps(PKG, indent=2) + "\n")
     pf.write(".gitignore", "node_modules\ndist\n")
     pf.write("src/styles/tokens.css", design_engine.render_tokens(state.design) + animation_engine.css_vars(state.motion))

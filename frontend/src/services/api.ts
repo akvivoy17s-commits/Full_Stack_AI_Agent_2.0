@@ -93,6 +93,13 @@ export interface BackendLast {
   generated: boolean; generator?: string; db?: string | null; routes?: number; files?: number; not_generated?: string[]; warnings?: string[]
 }
 export interface BackendInfo { coverage: BackendCoverage; last: BackendLast }
+export interface DebugDiagnostic { severity: string; file: string; line?: number | null; message: string }
+export interface DebugPatchResult { file: string; reason: string }
+export interface DebugResult {
+  summary: string; diagnostics: DebugDiagnostic[]; applied: DebugPatchResult[]; rejected: string[]
+  files_scanned: number; files_in_context: string[]; verification: string[]; usage: { in: number; out: number }; apply_fixes: boolean
+}
+
 export interface BackendResult {
   generated: boolean; gaps?: string[]; note?: string; generator?: string; database?: string | null; files?: number; written?: string[]
   kept?: string[]; routes?: number; not_generated?: string[]; warnings?: string[]; commands?: Record<string, string>
@@ -109,6 +116,7 @@ export const api = {
     brief, framework, ...(config ? { mode: config.mode, prefs: config.prefs } : {}), ...(overrides && Object.keys(overrides).length ? { overrides } : {}),
   }).then(j<{ project_id: string; stack?: Record<string, string>; summary?: string; warnings?: unknown[]; pending?: string[]; blocking?: string[] }>),
   autoBuild: (prompt: string) => post('/autobuild', { prompt }).then(j<{ project_id: string; task_id: string; stack: Record<string, string>; summary: string; assumptions: string[]; autopilot: boolean }>),
+  debugProject: (id: string, error_text: string, apply_fixes = true) => post(`/projects/${id}/debug`, { error_text, apply_fixes }).then(j<DebugResult>),
   specPreview: (brief: string, config: StackDraft, overrides: SpecOverrides) =>
     post('/spec/preview', { brief, mode: config.mode, prefs: config.prefs, overrides }).then(j<SpecPreview>),
   stackCatalog: () => fetch(`${B}/stack/catalog`).then(j<StackCatalog>),

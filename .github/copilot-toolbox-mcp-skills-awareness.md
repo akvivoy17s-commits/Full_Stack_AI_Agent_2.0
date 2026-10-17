@@ -1,6 +1,6 @@
 # GitHub Copilot Toolbox — MCP & Skills awareness
 
-_Generated: 2026-10-16T13:30:42.630Z_
+_Generated: 2026-10-17T04:10:43.962Z_
 
 ## How to use this report
 
@@ -15,7 +15,7 @@ _Generated: 2026-10-16T13:30:42.630Z_
 
 Workspace `mcp.json` _(folder: fullstack_ai_agent)_
 
-- **c:\Users\Ajmal Khan\Desktop\ai agent 2.0\fullstack_ai_agent\.vscode\mcp.json** — _File missing_
+- **c:\Users\Ajmal Khan\Desktop\agent 3.0\fullstack_ai_agent\.vscode\mcp.json** — _File missing_
 
 _No active workspace servers in mcp.json._
 

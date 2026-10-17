@@ -99,7 +99,30 @@ def _template(name: str) -> str:
     return text
 
 
+
+def wants_3d(brief) -> bool:
+    """Return True only when the request explicitly asks for a 3D/WebGL experience.
+
+    This deterministic, conservative check keeps ordinary projects lightweight while
+    preserving the public API used by code_engine, react_engine, and quality_engine.
+    """
+    if not isinstance(brief, str):
+        return False
+    text = re.sub(r"\s+", " ", brief.lower())
+    explicit = (
+        r"\b3d\b", r"three\.js", r"threejs", r"webgl", r"react three fiber",
+        r"three-dimensional", r"3-dimensional", r"interactive 3d", r"3d animation",
+        r"3d website", r"3d portfolio", r"3d hero", r"immersive 3d",
+    )
+    return any(re.search(pattern, text) for pattern in explicit)
+
 def install(pf) -> None:
-    """Copy the local animation stylesheet and vanilla-JS runtime into the project."""
+    """Install reusable motion assets and the opt-in 3D runtime.
+
+    The 3D module is intentionally shipped with HTML projects because their
+    scaffold already references it. It performs no network import unless a
+    generated section explicitly opts in with a data-three-hero hook.
+    """
     pf.write("css/animations.css", _template("animations.css"))
     pf.write("js/motion.js", _template("motion.js"))
+    pf.write("js/three-hero.js", _template("three-hero.js"))

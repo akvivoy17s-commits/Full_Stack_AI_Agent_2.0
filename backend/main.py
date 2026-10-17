@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from backend import config
 from backend.agent.state import AgentState
-from backend.api import system, tasks as tasks_api, stack as stack_api, spec as spec_api, backend_gen as backend_api, repo as repo_api, autopilot as autopilot_api
+from backend.api import system, tasks as tasks_api, stack as stack_api, spec as spec_api, backend_gen as backend_api, repo as repo_api, autopilot as autopilot_api, debug as debug_api
 from backend import stack as stack_engine
 from backend import spec as spec_engine
 from backend.spec import memory as spec_memory
@@ -49,6 +49,7 @@ app.include_router(spec_api.router)
 app.include_router(backend_api.router)
 app.include_router(repo_api.router)
 app.include_router(autopilot_api.router)
+app.include_router(debug_api.router)
 
 
 class NewProject(BaseModel):

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Download, PanelLeftClose, PanelLeftOpen, Settings as Cog, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Download, PanelLeftClose, PanelLeftOpen, Settings as Cog, ChevronDown, ChevronUp, Bug } from 'lucide-react'
 import Logo from '../components/Logo'
 import ConnectionBadge from '../components/ConnectionBadge'
 import { useOllama } from '../hooks/useOllama'
@@ -11,6 +11,7 @@ import CodePanel from './CodePanel'
 import BottomPanel from './BottomPanel'
 import SettingsDialog from './SettingsDialog'
 import PreviewPanel from '../preview/PreviewPanel'
+import DebugDialog from './DebugDialog'
 
 const go = (id: string | null) => { window.location.hash = id ? `#/workspace/${id}` : '#/workspace' }
 type Pane = 'projects' | 'build' | 'code' | 'preview' | 'log'
@@ -27,6 +28,7 @@ export default function Workspace({ projectId }: { projectId: string | null }) {
   const [report, setReport] = useState<Report | null>(null)
   const [version, setVersion] = useState(0)
   const [settings, setSettings] = useState(false)
+  const [debugOpen, setDebugOpen] = useState(false)
   const [sidebar, setSidebar] = useState(true)
   const [logOpen, setLogOpen] = useState(true)
   const [pane, setPane] = useState<Pane>('build')
@@ -78,6 +80,7 @@ export default function Workspace({ projectId }: { projectId: string | null }) {
         <button aria-label="Toggle sidebar" className="hidden rounded-md p-1.5 text-zinc-400 hover:text-white lg:block" onClick={() => setSidebar(!sidebar)}>{sidebar ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}</button>
         <div className="ml-auto flex items-center gap-2">
           <ConnectionBadge conn={conn} onClick={() => setSettings(true)} />
+          {projectId && <button className="btn-ghost !px-2.5 !py-1.5" onClick={() => setDebugOpen(true)} title="Paste an error and debug the project"><Bug size={15} /><span className="hidden sm:inline">Debug</span></button>}
           {projectId && <a className="btn-ghost !px-2.5 !py-1.5" href={api.exportUrl(projectId)} download title="Export project as zip"><Download size={15} /><span className="hidden sm:inline">Export</span></a>}
           <button className="btn-ghost !px-2.5 !py-1.5" aria-label="Open settings" onClick={() => setSettings(true)}><Cog size={15} /><span className="hidden sm:inline">Settings</span></button>
         </div>
@@ -123,6 +126,7 @@ export default function Workspace({ projectId }: { projectId: string | null }) {
         </main>
       </div>
       {settings && <SettingsDialog models={conn.status?.models ?? []} onClose={() => setSettings(false)} onSaved={refresh} />}
+      {debugOpen && projectId && <DebugDialog projectId={projectId} projectBrief={project?.brief} onClose={() => setDebugOpen(false)} onFixed={() => { setVersion((v) => v + 1); void reload() }} />}
     </div>
   )
 }

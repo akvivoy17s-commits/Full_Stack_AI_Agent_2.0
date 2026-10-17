@@ -82,7 +82,10 @@ BLUEPRINT = BASE + (
     "Pair one display font with one readable body font from "
     "Inter, Manrope, DM Sans, Sora, Outfit, Plus Jakarta Sans, Space Grotesk, Poppins. "
     "Radius 8-24 with a consistent look, spacing 8. "
-    "Motion subtle and purposeful; use none for dense dashboards."
+    "Motion subtle and purposeful; use none for dense dashboards. "
+    "Choose a specific visual direction from the brief (editorial, refined SaaS, playful, cinematic, brutalist, etc.); "
+    "avoid generic purple gradients and identical card-grid layouts. Specify one signature visual motif and a clear page rhythm. "
+    "Use realistic product content and a strong hero composition; do not choose 3D effects unless they suit the brief."
 )
 
 # ----------------------------------------------------------------
@@ -100,7 +103,8 @@ DESIGN = BASE + (
     "Space Grotesk, Poppins or Plus Jakarta Sans. "
     "Keep radius and spacing consistent across every component. "
     "Avoid pure black and pure white unless the design requires them. "
-    "Fit the palette to the product's domain, not to a generic template."
+    "Fit the palette to the product's domain, not to a generic template. "
+    "Prioritize a distinct art direction: intentional contrast, restrained accents, clear type hierarchy and meaningful whitespace."
 )
 
 # ----------------------------------------------------------------
@@ -143,7 +147,22 @@ SECTION = BASE + (
     "no invented logos, quotes, statistics or prices unless supplied (label examples as sample). "
     "Visuals: inline SVG or CSS shapes and gradients only, decorative SVG aria-hidden=\"true\". "
     "Controls: real <a href=\"#existing-section-id\"> or <button type=\"button\">; every input has a <label>. "
-    "Match the style of the DONE sections and never repeat their content."
+    "Match the style of the DONE sections and never repeat their content. "
+    "PREMIUM UI QUALITY: make the page feel art-directed, not like a default component library. "
+    "Use a strong composition with a clear focal point, deliberate asymmetry where appropriate, layered surfaces, "
+    "fine borders, subtle shadows, restrained gradients and carefully aligned content. "
+    "Vary section composition: do not repeat the same 3-card layout in every section. "
+    "Use a distinctive but coherent visual motif (geometry, editorial rules, soft glow, texture, or product UI) "
+    "only when it fits the brief. Build rich visuals from inline SVG/CSS shapes and pseudo-elements; "
+    "avoid emoji as icons, empty decorative boxes, random blobs, fake logos, and generic stock-looking placeholders. "
+    "Use consistent icon stroke/size, tight button styling, polished input states, visible focus, and meaningful hover feedback. "
+    "Keep content density intentional: short readable copy, balanced line lengths, aligned edges, and no huge blank regions. "
+    "For dashboards, prioritize information hierarchy, compact useful data, filters, table/chart legibility and realistic states; "
+    "for portfolios, prioritize strong typography, project previews, editorial spacing and personality; "
+    "for SaaS landing pages, show a convincing product preview instead of a giant empty gradient. "
+    "Do not simulate 3D with excessive blur or glow. Use lightweight CSS depth only when appropriate, "
+    "and never imply a control works unless it has a valid target or behavior. "
+    "Before returning, mentally check desktop and 360px mobile: no clipping, overlap, horizontal scroll, or tiny controls."
 )
 
 # ----------------------------------------------------------------
@@ -154,7 +173,10 @@ HINTS = {
     "hero": (
         "One h1 with a concrete value proposition, 1-2 line lead, primary and secondary CTA, "
         "a visual built from CSS/SVG (product mock or gradient shapes), trust line. "
-        "Large type via clamp(), asymmetric two-column on desktop, stacked on mobile."
+        "Large type via clamp(), asymmetric two-column on desktop, stacked on mobile. "
+        "Give the hero a memorable composition: oversized headline, tight supporting copy, two purposeful CTAs, "
+        "and a detailed product/portfolio visual with layered depth and a small number of crisp highlights. "
+        "Keep the first viewport balanced; no giant empty background, generic blob, or floating card pile."
     ),
     "logos": (
         "Quiet trust strip: short caption and 4-6 neutral text wordmarks, muted colour, "
@@ -162,11 +184,14 @@ HINTS = {
     ),
     "features": (
         "Eyebrow, h2, lead, then 3-6 equal cards: inline SVG icon in a tinted square, "
-        "h3, one-sentence benefit. Responsive auto-fit grid, hover lift."
+        "h3, one-sentence benefit. Responsive auto-fit grid, hover lift. "
+        "Give each card a distinct icon/visual and align content consistently; avoid oversized cards and repetitive filler."
     ),
     "showcase": (
         "Product preview framed in a browser-style card built with CSS: toolbar dots, realistic UI rows, "
-        "metric chips. Beside it 3 benefit bullets with icons. Stack on mobile."
+        "metric chips. Beside it 3 benefit bullets with icons. Stack on mobile. "
+        "Make the mock UI believable with a sidebar/topbar, realistic data hierarchy, tiny status details and deliberate spacing; "
+        "avoid unreadable microtext and decorative fake dashboards with no structure."
     ),
     "how": (
         "3-4 numbered steps in a semantic ordered list, big step numbers, short title and sentence, "
@@ -215,7 +240,8 @@ HINTS = {
     ),
     "work": (
         "3-6 project cards: CSS/SVG cover, title, one-line outcome, tech chips, link to #contact "
-        "or an existing section. Grid with hover lift."
+        "or an existing section. Grid with hover lift. Use distinct project preview treatments, "
+        "clear project outcomes and strong title/metadata hierarchy; avoid generic identical placeholders."
     ),
     "about": (
         "Two columns: portrait placeholder built from initials in a gradient shape, "
