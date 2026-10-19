@@ -99,7 +99,31 @@ export interface DebugResult {
   summary: string; diagnostics: DebugDiagnostic[]; applied: DebugPatchResult[]; rejected: string[]
   files_scanned: number; files_in_context: string[]; verification: string[]; usage: { in: number; out: number }; apply_fixes: boolean
 }
+export interface LanguageAnalysisIssue {
+  file: string; line?: number | null; severity: string; category: string; message: string; tool?: string
+}
+export interface LanguageAnalysisCheck {
+  name: string; language?: string; status: string; files_checked?: number; detail: string
+}
+export interface LanguageAnalysis {
+  status: string; deep: boolean; files_scanned: number; truncated: boolean
+  languages: { name: string; files: number; checked: number; failed: number; skipped: number }[]
+  checks: LanguageAnalysisCheck[]; issues: LanguageAnalysisIssue[]; redundancy: LanguageAnalysisIssue[]
+  summary: string; notes: string[]; scope: string
+}
 
+export interface ProjectScan {
+  project_id: string; root_name: string; files_scanned: number; truncated: boolean
+  languages: { name: string; files: number }[]; frameworks: string[]; package_managers: string[]
+  entry_points: string[]; routes: string[]; api_endpoints: { method: string; path: string; file: string }[]
+  manifests: Record<string, { path: string; name?: string; scripts?: string[]; dependencies?: string[]; declares?: string[]; invalid_json?: boolean }>
+  file_extensions: { extension: string; files: number }[]; warnings: string[]
+}
+export interface GitChange { code: string; path: string; secret: boolean }
+export interface GitStatus { initialized: boolean; available: boolean; branch?: string | null; clean?: boolean | null; changes?: GitChange[]; summary?: string; error?: string }
+export interface GitDiff { available: boolean; ok?: boolean; diff: string; note?: string }
+export interface GitLog { available: boolean; commits: string[]; error?: string | null }
+export interface TerminalResult { args: string[]; cwd: string; code: number; out: string; ok: boolean; timed_out: boolean }
 export interface BackendResult {
   generated: boolean; gaps?: string[]; note?: string; generator?: string; database?: string | null; files?: number; written?: string[]
   kept?: string[]; routes?: number; not_generated?: string[]; warnings?: string[]; commands?: Record<string, string>
@@ -117,6 +141,14 @@ export const api = {
   }).then(j<{ project_id: string; stack?: Record<string, string>; summary?: string; warnings?: unknown[]; pending?: string[]; blocking?: string[] }>),
   autoBuild: (prompt: string) => post('/autobuild', { prompt }).then(j<{ project_id: string; task_id: string; stack: Record<string, string>; summary: string; assumptions: string[]; autopilot: boolean }>),
   debugProject: (id: string, error_text: string, apply_fixes = true) => post(`/projects/${id}/debug`, { error_text, apply_fixes }).then(j<DebugResult>),
+  scanProject: (id: string) => fetch(`${B}/projects/${id}/scan`).then(j<ProjectScan>),
+  analyzeProject: (id: string, deep = false) => post(`/projects/${id}/analyze`, { deep }).then(j<LanguageAnalysis>),
+  gitStatus: (id: string) => fetch(`${B}/projects/${id}/git`).then(j<GitStatus>),
+  gitDiff: (id: string, path?: string) => fetch(`${B}/projects/${id}/git/diff${path ? `?path=${encodeURIComponent(path)}` : ''}`).then(j<GitDiff>),
+  gitLog: (id: string) => fetch(`${B}/projects/${id}/git/log?limit=10`).then(j<GitLog>),
+  gitCreateBranch: (id: string, name: string, confirm: boolean) => post(`/projects/${id}/git/branch`, { name, confirm }).then(j<{ branch: string; created: boolean }>),
+  gitCommit: (id: string, message: string, paths: string[], confirm: boolean) => post(`/projects/${id}/git/commit`, { message, paths, confirm }).then(j<{ committed: boolean; commit: string; message: string; files: string[] }>),
+  terminalRun: (id: string, args: string[], timeout = 30, confirm = false) => post(`/projects/${id}/terminal`, { args, timeout, confirm }).then(j<TerminalResult>),
   specPreview: (brief: string, config: StackDraft, overrides: SpecOverrides) =>
     post('/spec/preview', { brief, mode: config.mode, prefs: config.prefs, overrides }).then(j<SpecPreview>),
   stackCatalog: () => fetch(`${B}/stack/catalog`).then(j<StackCatalog>),
@@ -135,6 +167,10 @@ export const api = {
   file: (id: string, path: string) => fetch(`${B}/projects/${id}/file?path=${encodeURIComponent(path)}`).then(j<{ content: string; issues: string[] }>),
   saveFile: (id: string, path: string, content: string) =>
     fetch(`${B}/projects/${id}/file`, { method: 'PUT', headers: JSON_H, body: JSON.stringify({ path, content }) }).then(j<{ issues: string[] }>),
+  createFile: (id: string, path: string, content = '') =>
+    post(`/projects/${id}/file`, { path, content }).then(j<{ path: string; content: string; issues: string[] }>),
+  deleteFile: (id: string, path: string) =>
+    fetch(`${B}/projects/${id}/file?path=${encodeURIComponent(path)}`, { method: 'DELETE' }).then(j<{ deleted: string }>),
   shots: (id: string) => fetch(`${B}/projects/${id}/shots`).then(j<string[]>),
   shotUrl: (id: string, name: string) => `${B}/projects/${id}/shot/${name}`,
   previewUrl: (id: string, v: number) => `${B}/preview/${id}/index.html?v=${v}`,

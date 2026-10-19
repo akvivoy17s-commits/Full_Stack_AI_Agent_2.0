@@ -184,22 +184,42 @@ def generator_gaps(stack: dict) -> list[str]:
 
 
 def status(field: str, value: str, stack: dict | None = None) -> str:
-    """'ready' or 'planned:<phase>'. Frontends depend on the chosen language (React is ready for TypeScript only);
-    backend/database/orm/auth/cache/storage/ai depend on the whole combination once a backend generator exists."""
-    if field in ("backend", "database", "orm", "auth", "cache", "storage", "ai") and value not in (None, "", "none"):
-        b = (stack or {}).get("backend")
-        if stack is not None and b in GENERATORS:
-            bad = generator_gaps(stack)
-            label = TABLES[field][value]["label"] if value in TABLES[field] else value
-            if field == "backend":
-                return READY if not any("is generated in" in g or "generator is planned" in g for g in bad) else f"planned:{TABLES[field][value]['phase']}"
-            return f"planned:{TABLES[field][value]['phase']}" if any(g.startswith(label) for g in bad) else READY
-        if field == "backend" and value in GENERATORS:
-            return READY
-        if stack is None and field in ("database", "auth") and any(value in g[{"database": "db"}.get(field, field)] for g in GENERATORS.values()):
-            return READY
+    """Return honest generator availability for the exact selected stack.
+
+    This build includes a client-side Firebase path for React + TypeScript projects with
+    no custom backend: Auth forms, Firestore owner-scoped CRUD helpers, security rules,
+    and Firebase Hosting configuration are generated. This does NOT imply deployment
+    has happened or that real Firebase credentials are configured.
+    """
     if value in (None, "", "none") and field != "frontend":
         return READY
+    if stack is not None:
+        fe = stack.get("frontend")
+        fl = stack.get("frontend_lang")
+        be = stack.get("backend") or "none"
+        firebase_client = fe == "react" and fl == "ts" and be == "none"
+        db = stack.get("database") or "none"
+        firebase_db = db == "firestore"
+        if firebase_client:
+            if field == "database" and firebase_db and value == "firestore":
+                return READY
+            if field == "auth" and value == "firebase-auth":
+                return READY
+            if field == "deploy" and value == "firebase-hosting":
+                return READY
+        b = stack.get("backend")
+        if field in ("backend", "database", "orm", "auth", "cache", "storage", "ai") and value not in (None, "", "none"):
+            if b in GENERATORS:
+                bad = generator_gaps(stack)
+                label = TABLES[field][value]["label"] if value in TABLES[field] else value
+                if field == "backend":
+                    return READY if not any("is generated in" in g or "generator is planned" in g for g in bad) else f"planned:{TABLES[field][value]['phase']}"
+                return f"planned:{TABLES[field][value]['phase']}" if any(g.startswith(label) for g in bad) else READY
+            if field == "backend" and value in GENERATORS:
+                return READY
+    elif field in ("database", "auth") and value not in (None, "", "none"):
+        if any(value in g[{"database": "db"}.get(field, field)] for g in GENERATORS.values()):
+            return READY
     item = TABLES[field].get(value)
     if not item:
         return "unknown"

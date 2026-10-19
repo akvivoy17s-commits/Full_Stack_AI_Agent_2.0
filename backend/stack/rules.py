@@ -63,6 +63,8 @@ def validate(s: dict) -> tuple[list[dict], list[dict]]:
     # ---- authentication
     if auth in ("jwt", "session", "oauth2") and be == "none":
         E(["auth", "backend"], f"{C.AUTH[auth]['label']} needs a backend. Use Firebase Authentication for a backend-free app.")
+    # Firestore can be used without a visible sign-in UI. In that case the generated
+    # browser data adapter provisions Firebase anonymous auth so owner-scoped rules still apply.
     if auth in ("jwt", "session") and db == "none":
         E(["auth", "database"], f"{C.AUTH[auth]['label']} needs a database to store users.")
     if auth == "oauth2" and db == "none" and be != "none":

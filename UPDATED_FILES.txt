@@ -1,0 +1,31 @@
+Full Stack AI Agent — Auto Detection, Smart Repair & Verified Completion Update
+
+Source/runtime files:
+- backend/agent/orchestrator.py
+- backend/agent/selfrepair.py
+- backend/agent/prompts.py
+- backend/engines/react_engine.py
+- backend/tools/checkpoint.py (new)
+- backend/tools/debugger.py
+- backend/tools/language_analyzer.py
+- backend/tools/quality_gate.py
+- backend/tools/project_verifier.py
+- backend/tools/terminal.py
+- .github/workflows/reliability.yml
+
+Regression tests:
+- tests/test_checkpoint.py (new)
+- tests/test_repair_reverification_gate.py (new)
+- tests/test_autopilot_build_diagnostics.py
+- tests/test_generated_tsx_source_guard.py
+- tests/test_language_analyzer.py
+- tests/test_quality_gate.py
+- tests/test_debugger_missing_diagnostic_target.py
+- tests/test_missing_module_scaffold_recovery.py
+- tests/test_project_verifier.py
+- tests/test_phase2_runner.py
+- tests/test_phase6_selfrepair.py
+- tests/test_phase6_autobuild_repair.py
+
+This is a path-preserving patch, not a full project archive. It expects the existing agent's
+core modules/configuration to remain in place.

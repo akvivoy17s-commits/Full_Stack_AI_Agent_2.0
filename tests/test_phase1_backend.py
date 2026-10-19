@@ -173,7 +173,9 @@ def test_repair_loops_respect_setting(monkeypatch):
     monkeypatch.setattr("backend.engines.repair_engine.fix", lambda pf, st, fx, *a: (seen.append(1), {"in": 0, "out": 0})[1])
     monkeypatch.setattr(orchestrator, "collect_issues", lambda pf, st, wb, *a: ([{"sid": "hero", "msg": "bad"}], "skipped", {}))
     res = orchestrator.verify(pid)
-    assert len(seen) == 2 and res["issues"]
+    # A no-op repair is fingerprinted; retrying the same source does not create progress.
+    assert len(seen) == 1 and res["issues"]
+    assert any(x.get("outcome") == "no_progress_same_source" for x in res.get("repair_log", []))
     client.put("/settings", json={"max_repair_loops": 3})
 
 

@@ -1,0 +1,11 @@
+.auth-layout {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 3rem);
+}
+.auth-layout > section,
+.auth-layout > div {
+  width: 100%;
+  min-width: 0;
+}

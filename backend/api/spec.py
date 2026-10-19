@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from backend import spec as spec_engine
+from backend.agent.prompt_limits import COMPOSED_BRIEF_MAX_CHARS
 from backend.api.stack import _state
 from backend.memory import project_store
 from backend.spec import memory as spec_memory
@@ -14,7 +15,7 @@ router = APIRouter()
 
 
 class PreviewReq(BaseModel):
-    brief: str = Field(min_length=1, max_length=2000)
+    brief: str = Field(min_length=1, max_length=COMPOSED_BRIEF_MAX_CHARS)
     mode: Mode = "automatic"
     prefs: dict[str, str | None] = Field(default_factory=dict)
     overrides: dict = Field(default_factory=dict)

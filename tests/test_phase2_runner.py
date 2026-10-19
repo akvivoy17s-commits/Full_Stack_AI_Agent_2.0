@@ -5,7 +5,9 @@ from backend.tools import terminal as T
 
 @pytest.mark.parametrize("cmd", [
     ["python", "-m", "py_compile", "app/main.py"], ["python", "-m", "pytest", "-q", "tests"], ["python", "-m", "pytest"], ["python", "-m", "pytest", "-q", "-x", "-p", "no:cacheprovider", "tests"],
-    ["python", "-m", "compileall", "-q", "."], ["python", "-m", "ruff", "check", "."], ["go", "test", "./..."],
+    ["python", "-m", "compileall", "-q", "."], ["python", "-m", "ruff", "check", "."],
+    [".venv/Scripts/python.exe", "-m", "pytest", "-q", "-p", "no:cacheprovider", "tests"],
+    [".venv/bin/python", "-m", "compileall", "-q", "."], ["go", "test", "./..."],
     ["mvn", "-q", "-B", "test"], ["npm", "run", "lint"], ["npm", "test"], ["dotnet", "build", "--nologo", "-v", "q"]])
 def test_allowed_shapes(cmd):
     assert T.allowed(cmd)
@@ -13,6 +15,7 @@ def test_allowed_shapes(cmd):
 
 @pytest.mark.parametrize("cmd", [
     ["python", "-c", "import os"], ["python", "script.py"], ["python", "-m", "pip", "install", "x"], ["python", "-m", "py_compile", "../x.py"],
+    [".venv/../outside/python", "-m", "pytest"], [".venv/Scripts/python.exe", "-c", "import os"],
     ["python", "-m", "py_compile", "/etc/x.py"], ["python", "-m", "pytest", "--rootdir=/"], ["python", "-m", "pytest", "-c", "/tmp/x.ini"],
     ["python", "-m", "pytest", "--co"], ["python", "-m", "pytest", "-p", "evil"], ["python", "-m", "pytest", "-p"], ["python", "-m", "pytest", "../x"], ["go", "run", "main.go"], ["mvn", "exec:exec"],
     ["npm", "run", "postinstall"], ["npm", "exec", "x"], ["node", "--check", "../x.js"], ["rm", "-rf", "/"], ["bash", "-c", "ls"], []])
@@ -34,9 +37,13 @@ def test_real_py_compile_and_pytest(tmp_path):
 def test_env_scrubbed(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-secretsecretsecret1234")
     monkeypatch.setenv("MY_TOKEN", "tok-abcdefgh12345")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:password@localhost/db")
+    monkeypatch.setenv("PYTHONPATH", "/untrusted/modules")
+    monkeypatch.setenv("NODE_OPTIONS", "--require=/untrusted/preload.js")
     monkeypatch.setenv("KEEP_ME", "yes")
     e = T._env()
-    assert "OPENAI_API_KEY" not in e and "MY_TOKEN" not in e and e["KEEP_ME"] == "yes" and e["CI"] == "1"
+    assert "OPENAI_API_KEY" not in e and "MY_TOKEN" not in e and "DATABASE_URL" not in e
+    assert "PYTHONPATH" not in e and "NODE_OPTIONS" not in e and e["KEEP_ME"] == "yes" and e["CI"] == "1"
 
 
 def test_unknown_command_raises():

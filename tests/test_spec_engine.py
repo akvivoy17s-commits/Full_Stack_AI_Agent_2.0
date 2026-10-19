@@ -71,7 +71,7 @@ def test_ecommerce_contract():
     routes = {(r["method"], r["path"]): r for r in spec["api"]["routes"]}
     assert ("POST", "/api/checkout") in routes and ("POST", "/api/payments/webhook") in routes and ("GET", "/api/health") in routes
     assert routes[("GET", "/api/products")]["access"] == "public" and routes[("POST", "/api/products")]["access"] == "admin"
-    assert routes[("PUT", "/api/orders/{id}")]["access"] == "owner"
+    assert routes[("PUT", "/api/orders/{id}")]["access"] == "admin"
     assert not any(r["path"].startswith("/api/order-items") for r in spec["api"]["routes"])       # created via the order
     assert any(v["name"] == "RAZORPAY_KEY_SECRET" and v["secret"] for v in spec["env"])
     user = next(e for e in spec["data"]["entities"] if e["name"] == "User")
@@ -158,3 +158,26 @@ def test_plural_and_fields():
     assert B.parse_field("owner:ref(User)")["ref"] == "User" and B.parse_field("email:email!@")["unique"]
     with pytest.raises(ValueError):
         B.parse_field("Bad:string")
+
+
+def test_ecommerce_reference_pages_and_personal_data_are_scoped():
+    brief = "online shopping store with login, catalog, wishlist, address book, checkout and admin order management"
+    st = stack_for(brief)
+    spec = B.build(brief, st)
+    pages = {p["slug"]: p for p in spec["pages"]}
+    assert {"catalog", "category", "product", "cart", "wishlist", "checkout", "addresses", "orders", "admin-products", "admin-orders"} <= set(pages)
+    entities = {e["name"]: e for e in spec["data"]["entities"]}
+    assert {"CartItem", "WishlistItem", "Address"} <= set(entities)
+    for name in ("CartItem", "WishlistItem", "Address"):
+        e = entities[name]
+        assert e["read"] == "owner" and e["write"] == "owner"
+        assert any(f.get("ref") == "User" for f in e["fields"])
+    routes = {(r["method"], r["path"]): r for r in spec["api"]["routes"]}
+    assert routes[("PUT", "/api/orders/{id}")]["access"] == "admin"
+
+
+def test_no_auth_ecommerce_does_not_publish_personal_cart_wishlist_or_addresses():
+    st = {"frontend": "react", "frontend_lang": "ts", "backend": "express", "database": "mysql", "auth": "none", "cache": "none", "storage": "none", "ai": "none", "testing": "none", "deploy": "local"}
+    spec = B.build("public online shop with catalog but no login", st)
+    names = {e["name"] for e in spec["data"]["entities"]}
+    assert not ({"CartItem", "WishlistItem", "Address"} & names)

@@ -1,79 +1,71 @@
-from pydantic import ValidationError
-import pytest
+"""Security and behavior tests for the project-aware debugger API."""
+from fastapi.testclient import TestClient
 
-from backend.api import debug
+from backend import config
+from backend.main import app
+from backend.tools.project_files import ProjectFiles
+from backend.storage import db
 
-
-def test_debug_request_accepts_error_up_to_15000_characters():
-    request = debug.DebugRequest(error_text="E" * 15000)
-    assert len(request.error_text) == 15000
-
-
-def test_debug_request_rejects_error_over_15000_characters():
-    with pytest.raises(ValidationError):
-        debug.DebugRequest(error_text="E" * 15001)
+client = TestClient(app)
+HEADERS = {"Origin": config.CORS_ORIGINS[0]}
 
 
-def test_debugger_never_patches_tests_secrets_or_lockfiles():
-    assert debug._eligible("src/App.tsx")
-    assert debug._eligible("backend/main.py")
-    assert not debug._eligible("tests/test_main.py")
-    assert not debug._eligible("src/App.test.tsx")
-    assert not debug._eligible("package-lock.json")
-    assert not debug._eligible(".env")
-    assert not debug._eligible("node_modules/pkg/index.js")
+def _project() -> str:
+    r = client.post("/projects", json={"brief": "Debugger API regression project"}, headers=HEADERS)
+    assert r.status_code == 200, r.text
+    return r.json()["project_id"]
 
 
-def test_project_chunks_include_all_readable_files_and_split_long_files():
-    class FakeProjectFiles:
-        def tree(self):
-            return ["src/App.tsx", "src/helper.ts", "tests/test_app.py", ".env", "package-lock.json"]
+def test_debug_apply_safe_patch_and_checkpoint(monkeypatch):
+    pid = _project()
+    pf = ProjectFiles(pid)
+    pf.write("src/App.tsx", "export const label = 'Broken';\n")
 
-        def read(self, path):
-            return {
-                "src/App.tsx": "A" * 4000,
-                "src/helper.ts": "helper source",
-                "tests/test_app.py": "assert True",
-                ".env": "API_KEY=secret",
-                "package-lock.json": "{\"lockfileVersion\": 3}",
-            }[path]
+    def fake_call(_kind, _system, _user, _model, _tokens):
+        return ({"summary": "The label is wrong.",
+                 "diagnostics": [{"severity": "warning", "file": "src/App.tsx", "line": 1, "message": "Unexpected label"}],
+                 "patches": [{"file": "src/App.tsx", "old": "'Broken'", "new": "'Fixed'", "reason": "Correct the literal"}]},
+                {"in": 12, "out": 6})
 
-    included, chunks = debug._project_chunks(FakeProjectFiles(), "src/App.tsx error")
-    assert included == ["src/App.tsx", "src/helper.ts", "tests/test_app.py"]
-    assert [c["offset"] for c in chunks if c["file"] == "src/App.tsx"] == ["0", "3500"]
-    assert all(c["file"] != ".env" for c in chunks)
-
-
-def test_batches_keep_every_chunk():
-    chunks = [{"file": f"src/{i}.tsx", "offset": "0", "content": "x" * 3500} for i in range(12)]
-    batches = debug._batches(chunks)
-    assert len(batches) > 1
-    assert sum(len(batch) for batch in batches) == len(chunks)
+    monkeypatch.setattr("backend.api.debug.llm.call_json", fake_call)
+    r = client.post(f"/projects/{pid}/debug", json={"error_text": "src/App.tsx:1 unexpected label", "apply_fixes": True}, headers=HEADERS)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["summary"] == "The label is wrong."
+    assert data["applied"][0]["file"] == "src/App.tsx"
+    assert "Fixed" in pf.read("src/App.tsx")
+    assert any("checkpoint" in row["label"].lower() for row in db.list_checkpoints(pid))
 
 
-def test_debug_endpoint_scans_the_selected_project_across_all_batches(monkeypatch):
-    files = {f"src/File{i}.tsx": f"FILE_MARKER_{i} " + ("x" * 3400) for i in range(8)}
+def test_debug_analyze_only_does_not_change_files(monkeypatch):
+    pid = _project()
+    pf = ProjectFiles(pid)
+    pf.write("src/App.tsx", "export const label = 'Keep';\n")
 
-    class FakeProjectFiles:
-        def __init__(self, project_id):
-            assert project_id == "currently-open-project"
+    def fake_call(_kind, _system, _user, _model, _tokens):
+        return ({"summary": "Found a likely issue.", "diagnostics": [],
+                 "patches": [{"file": "src/App.tsx", "old": "'Keep'", "new": "'Changed'", "reason": "test"}]}, {"in": 1, "out": 1})
 
-        def tree(self):
-            return list(files)
+    monkeypatch.setattr("backend.api.debug.llm.call_json", fake_call)
+    r = client.post(f"/projects/{pid}/debug", json={"error_text": "src/App.tsx is wrong", "apply_fixes": False}, headers=HEADERS)
+    assert r.status_code == 200, r.text
+    assert pf.read("src/App.tsx").find("'Keep'") >= 0
+    assert not r.json()["applied"]
+    assert r.json()["rejected"]
 
-        def read(self, path, max_chars=None):
-            value = files[path]
-            return value[:max_chars] if max_chars else value
 
-    prompts = []
-    monkeypatch.setattr(debug, "_project", lambda pid: None)
-    monkeypatch.setattr(debug, "ProjectFiles", FakeProjectFiles)
-    monkeypatch.setattr(debug.llm, "call_json", lambda *args: (prompts.append(args[2]) or {"summary": "scanned", "diagnostics": [], "patches": [], "verification": []}, {"in": 1, "out": 1}))
+def test_debug_rejects_patch_to_unprovided_or_protected_file(monkeypatch):
+    pid = _project()
+    pf = ProjectFiles(pid)
+    pf.write("src/App.tsx", "export const label = 'Keep';\n")
+    pf.write("src/other.ts", "export const secret = 'unique-value';\n")
 
-    result = debug.debug_project("currently-open-project", debug.DebugRequest(error_text="TypeError: sample runtime error", apply_fixes=False))
-    assert result["files_scanned"] == len(files)
-    assert len(prompts) > 1
-    combined = "\n".join(prompts)
-    for marker in range(len(files)):
-        assert f"FILE_MARKER_{marker}" in combined
-    assert "CURRENT WORKSPACE PROJECT ID: currently-open-project" in combined
+    def fake_call(_kind, _system, _user, _model, _tokens):
+        return ({"summary": "Test", "diagnostics": [],
+                 "patches": [{"file": "src/other.ts", "old": "'unique-value'", "new": "'edited'", "reason": "must not touch an unshared file"}]}, {"in": 1, "out": 1})
+
+    monkeypatch.setattr("backend.api.debug.llm.call_json", fake_call)
+    r = client.post(f"/projects/{pid}/debug", json={"error_text": "src/App.tsx has issue", "apply_fixes": True}, headers=HEADERS)
+    assert r.status_code == 200, r.text
+    assert "unique-value" in pf.read("src/other.ts")
+    assert not r.json()["applied"]

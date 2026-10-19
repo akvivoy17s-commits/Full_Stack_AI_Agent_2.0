@@ -47,7 +47,7 @@ export default function SettingsDialog({ models, onClose, onSaved }: { models: s
           <p className="mt-1 text-xs text-zinc-500">All profiles keep verification and security checks enabled. Fast is recommended for CPU-only laptops.</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-5">
-          <div><label className="label" htmlFor="s-to">Timeout (s)</label><input id="s-to" type="number" min={10} max={1800} className="field" value={s.timeout_s} onChange={num('timeout_s')} /></div>
+          <div><label className="label" htmlFor="s-to">Timeout (s)</label><input id="s-to" type="number" min={10} max={3600} className="field" value={s.timeout_s} onChange={num('timeout_s')} /></div>
           <div><label className="label" htmlFor="s-ctx">Context</label><input id="s-ctx" type="number" min={1024} max={32768} step={1024} className="field" value={s.num_ctx} onChange={num('num_ctx')} /></div>
           <div><label className="label" htmlFor="s-cc">Concurrency</label><input id="s-cc" type="number" min={1} max={4} className="field" value={s.max_concurrency} onChange={num('max_concurrency')} /></div>
           <div><label className="label" htmlFor="s-rp">Repair loops</label><input id="s-rp" type="number" min={0} max={5} className="field" value={s.max_repair_loops} onChange={num('max_repair_loops')} /></div>

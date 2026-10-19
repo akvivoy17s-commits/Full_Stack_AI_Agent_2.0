@@ -47,7 +47,20 @@ def get_record(db, e, rid, user) -> dict:
     return _load(db, e, rid, user, e["read"])
 
 
+def _require_admin_write(db, e, rid, user) -> None:
+    """Defence in depth for admin-write entities, even when service helpers are called outside HTTP routes."""
+    if e.get("write") != "admin" or is_admin(user):
+        return
+    # Preserve the non-disclosure contract for owner records: other users see 404;
+    # the rightful owner receives a clear forbidden response for admin-only mutations.
+    if e.get("read") == "owner" and e.get("ownerField"):
+        _load(db, e, rid, user, e["read"])
+    raise ApiError(403, "forbidden", "Admin access required")
+
+
 def create_record(db, e, body, user) -> dict:
+    if e.get("write") == "admin" and not is_admin(user):
+        raise ApiError(403, "forbidden", "Admin access required")
     data = V.validate_body(e, body, False)
     _check_refs(db, e, data)
     if e["ownerField"] and user:
@@ -58,6 +71,7 @@ def create_record(db, e, body, user) -> dict:
 
 
 def update_record(db, e, rid, body, user) -> dict:
+    _require_admin_write(db, e, rid, user)
     _load(db, e, rid, user, e["write"])
     data = V.validate_body(e, body, True)
     _check_refs(db, e, data)
@@ -67,5 +81,6 @@ def update_record(db, e, rid, body, user) -> dict:
 
 
 def delete_record(db, e, rid, user) -> None:
+    _require_admin_write(db, e, rid, user)
     _load(db, e, rid, user, e["write"])
     db.remove(e["name"], db.parse_id(rid))

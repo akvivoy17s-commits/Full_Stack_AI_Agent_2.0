@@ -1,10 +1,11 @@
 """Pydantic schemas for model output and API payloads."""
 import re
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
 from backend.security import validate_base_url
+from backend.agent.prompt_limits import EDIT_REPAIR_PROMPT_MAX_CHARS
 
 
 class SectionOut(BaseModel):
@@ -13,10 +14,18 @@ class SectionOut(BaseModel):
 
 
 class BlueprintOut(BaseModel):
+    # Keep this response schema aligned with prompts.BLUEPRINT. Fields not declared here
+    # are discarded by Pydantic before planner.blueprint() can use them.
     brand: str = "Brand"
-    sections: list = Field(default_factory=list)
+    stack: str = ""
+    sections: list[str] = Field(default_factory=list)
+    pages: list[dict[str, Any]] = Field(default_factory=list)
+    components: list[str] = Field(default_factory=list)
+    features: list[str] = Field(default_factory=list)
+    architecture: dict[str, Any] = Field(default_factory=dict)
     notes: str = ""
-    design: dict = Field(default_factory=dict)
+    design: dict[str, Any] = Field(default_factory=dict)
+    motion: dict[str, Any] = Field(default_factory=dict)
     motion: dict = Field(default_factory=dict)
 
 
@@ -47,7 +56,7 @@ class SettingsUpdate(BaseModel):
     anthropic_model: str | None = Field(default=None, min_length=1, max_length=150)
     vision_model: str | None = Field(default=None, max_length=150)
     max_retries: int | None = Field(default=None, ge=0, le=4)
-    timeout_s: int | None = Field(default=None, ge=10, le=1800)
+    timeout_s: int | None = Field(default=None, ge=10, le=3600)
     num_ctx: int | None = Field(default=None, ge=1024, le=32768)
     generation_profile: Literal["fast", "balanced", "quality"] | None = None
     max_concurrency: int | None = Field(default=None, ge=1, le=4)
@@ -84,8 +93,9 @@ class TaskCreate(BaseModel):
     force: bool = False                       # regenerate everything (destructive -> needs confirm)
     confirm: bool = False
     repair: bool = True
+    deep: bool = False                         # optional backend build/test pass; never installs packages
     section: str = Field(default="", max_length=20)
-    instruction: str = Field(default="", max_length=500)
+    instruction: str = Field(default="", max_length=EDIT_REPAIR_PROMPT_MAX_CHARS)
 
 
 class VisionOut(BaseModel):

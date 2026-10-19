@@ -4,10 +4,11 @@ import json
 from backend import config
 from backend.agent import planner, context, progress, requirements, selfrepair
 from backend.storage import db
-from backend.engines import code_engine, react_engine, repair_engine, quality_engine
+from backend.engines import code_engine, react_engine, repair_engine
 from backend.memory import project_store, history
 from backend.tools import browser, screenshots, vision
 from backend.tools.project_files import ProjectFiles
+from backend.tools import checkpoint as checkpoint_tools
 from backend.tools.validators import validate_html, validate_css
 from backend import stack as stack_engine
 from backend import spec as spec_engine
@@ -20,7 +21,7 @@ def _add(state, u: dict) -> None:
     state.usage["out"] += u["out"]
 
 
-MAX_TRIES_PER_ISSUE = 2        # the same issue is never repaired more than twice (patch, then full-section regen)
+MAX_TRIES_PER_ISSUE = 2        # one targeted patch, then one source-of-truth section regeneration
 
 
 def _sig(i: dict) -> str:
@@ -30,6 +31,78 @@ def _sig(i: dict) -> str:
 def _task_id() -> str:
     c = context.current()
     return c.task_id if c else ""
+
+
+def _section_fixable(issue: dict, tries: dict | None = None) -> bool:
+    """Only send canonical section issues to the section repair engine.
+
+    A raw `file` issue belongs to file-level repair. React section compile errors are
+    represented with `generated_file` instead: the TSX file is derived and must be
+    repaired by modifying its canonical HTML/CSS source, never by patching generated TSX.
+    """
+    if not issue.get("sid") or issue.get("file"):
+        return False
+    return (tries or {}).get(_sig(issue), 0) < MAX_TRIES_PER_ISSUE
+
+
+def _section_source_fingerprint(pf, state, sid: str) -> str:
+    """Stable fingerprint for the actual editable source of one generated section."""
+    try:
+        html, css = code_engine.get_section(pf, sid, state)
+    except Exception:  # a missing source has a stable empty fingerprint
+        html, css = "", ""
+    return hashlib.sha256((str(html) + "\0" + str(css)).encode("utf-8", errors="replace")).hexdigest()
+
+
+def _section_checkpoint_paths(state, sids) -> list[str]:
+    """Files the canonical section engine is allowed to update during a section repair."""
+    paths = {"index.html", "css/sections.css", "src/App.tsx"}
+    for sid in sids:
+        sid = str(sid)
+        paths.update({f".agent/parts/{sid}.html", f".agent/parts/{sid}.css"})
+        paths.update({f"src/sections/{sid}.css", f"src/sections/{react_engine.pascal(sid)}.tsx"})
+    return sorted(paths)
+
+
+def _issue_keys(items: list[dict]) -> set[tuple[str, str, str]]:
+    """Stable exact diagnostic identities used to decide whether a repair improved evidence."""
+    import re
+    rows = set()
+    for item in items:
+        file_name = str(item.get("file") or "").replace("\\", "/")
+        message = re.sub(r"\s+", " ", str(item.get("msg") or item.get("message") or "")).strip()
+        rows.add((str(item.get("sid") or ""), file_name, message))
+    return rows
+
+
+def _deep_failed_check_names(pf, enabled: bool) -> tuple[set[str], bool]:
+    """Return names of failed declared checks; false means verification itself was unavailable."""
+    if not enabled:
+        return set(), True
+    try:
+        from backend.tools.project_verifier import verify_backend
+        result = verify_backend(pf, deep=True)
+        checks = result.get("checks", [])
+        if not isinstance(checks, list):
+            return {"__verification_unavailable__"}, False
+        return {str(c.get("name") or "unnamed check") for c in checks
+                if isinstance(c, dict) and c.get("status") == "failed"}, True
+    except Exception as exc:  # never convert an unavailable verifier into a green pass
+        context.progress("verify", f"Post-repair build/test verification could not complete: {type(exc).__name__}", "warn")
+        return {"__verification_unavailable__"}, False
+
+
+def _repair_improved(before: list[dict], after: list[dict], before_failed: set[str],
+                     after_failed: set[str], verifier_ok: bool) -> tuple[bool, str]:
+    before_keys, after_keys = _issue_keys(before), _issue_keys(after)
+    if not verifier_ok:
+        return False, "post-repair verifier was unavailable"
+    new_failed_checks = after_failed - before_failed
+    if new_failed_checks:
+        return False, "new failing check(s): " + ", ".join(sorted(new_failed_checks)[:4])
+    if after_keys < before_keys:
+        return True, "diagnostics reduced and no new checks failed"
+    return False, "diagnostics did not strictly decrease"
 
 
 def collect_issues(pf, state, with_browser: bool, want_images: bool = False):
@@ -61,7 +134,6 @@ def collect_issues(pf, state, with_browser: bool, want_images: bool = False):
             issues += [{"sid": sid, "msg": e} for e in validate_css(css) if "reduced-motion" not in e]
         checks.append({"name": "section markup + CSS", "viewport": "static", "status": "failed" if issues else "passed", "detail": f"{len(issues)} issue(s)"})
     issues += selfrepair.static_issues(pf)                 # file syntax checks (JS via node, Python/JSON in-process)
-    issues += quality_engine.inspect(pf, state)          # missing assets, fake placeholders and dead forms
     extra = {"report": {"checks": checks, "a11y": [], "notes": []}, "images": {}}
     serve_dir, note = pf.root, "skipped"
     if state.plan.get("stack") == "react":
@@ -71,11 +143,18 @@ def collect_issues(pf, state, with_browser: bool, want_images: bool = False):
         b = react_engine.build(pf, state)
         for build_issue in b["issues"]:
             msg = str(build_issue.get("msg", ""))
-            file_match = __import__("re").search(r"\b((?:src/)[\w./-]+\.(?:tsx?|jsx?|css))", msg)
+            file_match = __import__("re").search(r"\b((?:src[/\\])?[\w./\\-]+\.(?:tsx?|jsx?|css))", msg)
             if file_match:
-                build_issue["file"] = file_match.group(1)
+                rel = file_match.group(1).replace("\\", "/")
                 line_match = __import__("re").search(r"\((\d+),\d+\)", msg) or __import__("re").search(r":(\d+):\d+", msg)
                 build_issue["line"] = int(line_match.group(1)) if line_match else None
+                if rel.lower().startswith("src/sections/") and rel.lower().endswith(".tsx") and build_issue.get("sid"):
+                    # TSX section files are derived from .agent/parts/<sid>.html/.css.
+                    # Mark the real diagnostic location for reporting, but route repair to
+                    # the canonical section source rather than letting selfrepair corrupt TSX.
+                    build_issue["generated_file"] = rel
+                else:
+                    build_issue["file"] = rel
         issues += b["issues"]
         checks += b["checks"]
         note = b["note"]
@@ -148,7 +227,7 @@ def _vision_enabled() -> bool:
     return bool((db.get_settings().get("vision_model") or "").strip())
 
 
-def verify(pid: str, do_repair: bool = True, with_browser: bool | None = None) -> dict:
+def verify(pid: str, do_repair: bool = True, with_browser: bool | None = None, deep: bool = False) -> dict:
     with_browser = config.USE_BROWSER if with_browser is None else with_browser
     state = project_store.load(pid)
     if not state:
@@ -158,9 +237,15 @@ def verify(pid: str, do_repair: bool = True, with_browser: bool | None = None) -
     if normalized:
         context.progress("verify", f"Normalized duplicate or conflicting IDs in {normalized} section(s) without an LLM call")
     issues, note, extra = [], "skipped", {}
-    max_loops = min(db.get_settings()["max_repair_loops"], 5)
+    rollback_failure_note = None
+    configured_loops = min(db.get_settings()["max_repair_loops"], 5)
+    max_loops = configured_loops
+    if do_repair and max_loops == 0:
+        context.progress("repair", "Section repair loops are disabled (Settings > Repair loops = 0). Set this to 2-3 to let the agent regenerate broken sections.", "warn")
     tries: dict[str, int] = {}                   # issue signature -> repair attempts this cycle
+    attempts_by_sid: dict[str, int] = {}          # bounds section attempts even if diagnostics mutate
     pending: list[dict] = []                     # repairs whose outcome is judged by the next check pass
+    stalled_signatures: set[str] = set()          # same error + unchanged canonical source: never call the model again
     repair_log: list[dict] = []
     vision_on = with_browser and _vision_enabled()
     for attempt in range(max_loops + 1):
@@ -169,39 +254,179 @@ def verify(pid: str, do_repair: bool = True, with_browser: bool | None = None) -
         issues, note, extra = collect_issues(pf, state, with_browser, vision_on)
         now = {_sig(i) for i in issues}
         for rp in pending:                       # record what the previous repair actually achieved
-            outcome = "error" if rp["method"] == "error" else ("still_failing" if rp["sig"] in now else "fixed")
+            still_failing = rp["sig"] in now
+            source_unchanged = bool(rp.get("source_fingerprint")) and (
+                _section_source_fingerprint(pf, state, str(rp["sid"])) == rp["source_fingerprint"]
+            )
+            if rp["method"] == "error":
+                outcome = "error"
+            elif still_failing and source_unchanged:
+                outcome = "no_progress_same_source"
+                stalled_signatures.add(rp["sig"])
+                context.progress(
+                    "repair",
+                    f"Stopped retrying '{rp['sid']}': the same diagnostic remains and its canonical source did not change",
+                    "warn",
+                )
+            else:
+                outcome = "still_failing" if still_failing else "fixed"
             row = {"attempt": rp["attempt"], "sid": rp["sid"], "issue": rp["msg"][:160], "method": rp["method"], "outcome": outcome}
             repair_log.append(row)
             db.add_repair_attempt(pid, _task_id(), rp["attempt"], rp["sid"], rp["msg"], rp["sig"], rp["method"], outcome)
         pending = []
-        fixable = [i for i in issues if i["sid"] and tries.get(_sig(i), 0) < MAX_TRIES_PER_ISSUE]
+        fixable = [i for i in issues if _section_fixable(i, tries)
+                   and _sig(i) not in stalled_signatures
+                   and attempts_by_sid.get(str(i.get("sid")), 0) < MAX_TRIES_PER_ISSUE]
         for i in issues:
-            if i["sid"] and tries.get(_sig(i), 0) >= MAX_TRIES_PER_ISSUE:
-                context.progress("repair", f"Not retrying '{i['sid']}': {i['msg'][:60]} (already tried {MAX_TRIES_PER_ISSUE}x)", "warn")
+            sid_key = str(i.get("sid") or "")
+            if sid_key and (tries.get(_sig(i), 0) >= MAX_TRIES_PER_ISSUE
+                            or attempts_by_sid.get(sid_key, 0) >= MAX_TRIES_PER_ISSUE):
+                context.progress("repair", f"Not retrying '{sid_key}': {i['msg'][:60]} (section repair budget exhausted)", "warn")
         if not do_repair or not fixable or attempt == max_loops:
             break
         context.progress("repair", f"Repair attempt {attempt + 1}/{max_loops}: {len(fixable)} issue(s)")
-        regen = {i["sid"] for i in fixable if tries.get(_sig(i), 0) >= 1}      # a patch already failed -> regenerate that section
-        res = repair_engine.fix(pf, state, fixable, regen)
+        regen = {i["sid"] for i in fixable if attempts_by_sid.get(str(i.get("sid")), 0) >= 1}  # patch failed -> one regeneration
+        # A stable baseline is captured after the current build/static pass. Each repair
+        # round is checkpointed and immediately re-verified; failed changes are rolled back.
+        baseline_issues = collect_issues(pf, state, False, False)[0]
+        baseline_failed, baseline_verifier_ok = _deep_failed_check_names(pf, deep)
+        source_before = {
+            str(i["sid"]): _section_source_fingerprint(pf, state, str(i["sid"]))
+            for i in fixable if i.get("sid")
+        }
+        sids_to_checkpoint = {str(i["sid"]) for i in fixable if i.get("sid")}
+        sections_done_before = list(state.sections_done)
+        try:
+            checkpoint = checkpoint_tools.capture(pf.root, _section_checkpoint_paths(state, sids_to_checkpoint))
+        except Exception as exc:  # if safe rollback cannot be guaranteed, do not make the change
+            checkpoint = None
+            context.progress("repair", f"Skipped repair because a safe checkpoint could not be created: {str(exc)[:140]}", "warn")
+            res = {"in": 0, "out": 0, "log": [
+                {"sid": sid, "method": "error", "msgs": ["safe checkpoint unavailable"]}
+                for sid in sids_to_checkpoint
+            ]}
+        else:
+            res = repair_engine.fix(pf, state, fixable, regen)
         _add(state, res)
+        after_repair_issues = collect_issues(pf, state, False, False)[0]  # fresh React/Vite build
+        after_failed, after_verifier_ok = _deep_failed_check_names(pf, deep)  # declared build + tests, when enabled
+        verifier_ok = baseline_verifier_ok and after_verifier_ok
+        improved, repair_reason = _repair_improved(
+            baseline_issues, after_repair_issues, baseline_failed, after_failed, verifier_ok
+        )
+        if not improved:
+            if checkpoint is not None:
+                try:
+                    checkpoint_tools.restore(pf.root, checkpoint)
+                    state.sections_done = sections_done_before
+                    context.progress("repair", f"Rejected section repair and restored checkpoint: {repair_reason}", "warn")
+                    # Re-run verification on restored code; only then may the next pass proceed.
+                    collect_issues(pf, state, False, False)
+                    _deep_failed_check_names(pf, deep)
+                except Exception as exc:
+                    rollback_failure_note = f"Checkpoint rollback failed: {type(exc).__name__}: {str(exc)[:180]}"
+                    context.progress("repair", rollback_failure_note, "error")
+            else:
+                state.sections_done = sections_done_before
+        else:
+            context.progress("verify", "Post-repair build/static checks passed their regression gate; no new test/check failures detected")
         done = {e["sid"]: e["method"] for e in res.get("log", [])} or {i["sid"]: "patch" for i in fixable}
+        counted_sections: set[str] = set()
         for i in fixable:
             if i["sid"] in done:
                 tries[_sig(i)] = tries.get(_sig(i), 0) + 1
-                pending.append({"attempt": attempt + 1, "sid": i["sid"], "msg": i["msg"], "sig": _sig(i), "method": done[i["sid"]]})
+                sid_key = str(i.get("sid"))
+                # Several compiler/markup diagnostics can belong to one section. Count one
+                # repair operation per section per pass, not one per diagnostic message.
+                if sid_key not in counted_sections:
+                    attempts_by_sid[sid_key] = attempts_by_sid.get(sid_key, 0) + 1
+                    counted_sections.add(sid_key)
+                pending.append({"attempt": attempt + 1, "sid": i["sid"], "msg": i["msg"], "sig": _sig(i),
+                                "method": done[i["sid"]],
+                                "source_fingerprint": source_before.get(str(i["sid"]))})
         state.repair_count += 1
         project_store.save(state)
     report = extra.get("report", {"checks": [], "a11y": [], "notes": []})
-    if do_repair and any(i.get("file") for i in issues):     # Phase 6: bounded file-level self-repair
+    def _file_repair_check(_pf):
+        # Build/import/type errors are refreshed after every file-repair round.
+        rows = [i for i in collect_issues(_pf, state, False, False)[0]
+                if i.get("file") and not selfrepair.PROTECTED.search(str(i.get("file")))]
+        return rows
+
+    file_fixable = [i for i in issues if i.get("file") and not selfrepair.PROTECTED.search(str(i.get("file")))]
+    if do_repair and file_fixable:                           # Phase 6: bounded file-level self-repair
         sr = selfrepair.repair_files(
             pf,
-            [i for i in issues if i.get("file")],
-            check=lambda _pf: [i for i in collect_issues(_pf, state, False, False)[0] if i.get("file")],
+            file_fixable,
+            check=_file_repair_check,
+            reverify=(lambda _pf: _deep_failed_check_names(_pf, deep)) if deep else None,
         )
-        issues = [i for i in issues if not i.get("file")] + sr["remaining"]
+        issues = [i for i in issues if not i.get("file") or selfrepair.PROTECTED.search(str(i.get("file")))] + sr["remaining"]
         state.usage["out"] += sr["usage_tokens"]
         report["selfrepair"] = {k: sr[k] for k in ("status", "fixed", "rounds", "attempts", "stop", "blocked", "log")}
         state.repair_count += bool(sr["attempts"])
+    if deep:
+        # This pass is read-only: it may execute only the project's declared allowlisted
+        # checks when dependencies are already installed; it never installs dependencies.
+        from backend.tools.project_verifier import verify_backend
+        deep_result = verify_backend(pf, deep=True)
+        report["deep_project_verification"] = {
+            "status": deep_result.get("status", "unknown"),
+            "note": deep_result.get("note", ""),
+            "issues": deep_result.get("issues", []),
+        }
+        report["checks"].extend(deep_result.get("checks", []))
+        for item in deep_result.get("blocking_issues", []):
+            issues.append({"sid": None, "msg": "deep verification: " + str(item.get("message", "check failed"))[:500]})
+
+    # Final project-wide language audit. The normal pass parses supported syntax and
+    # reuses build evidence collected above. Deep mode additionally invokes only the
+    # analyzer's fixed/allowlisted local toolchain checks; it never installs packages.
+    from backend.tools.quality_gate import run_quality_gate
+    selected_stack = (state.stack_config or {}).get("stack") or {}
+    require_logic_tests = (
+        state.plan.get("layout") in {"app", "dashboard"}
+        or selected_stack.get("backend") not in (None, "", "none")
+        or len((state.plan.get("features") or [])) >= 4
+    )
+    quality = run_quality_gate(
+        pf,
+        deep=deep,
+        existing_checks=report.get("checks", []),
+        require_logic_tests=require_logic_tests,
+    )
+    report["quality_gate"] = quality
+    report.setdefault("notes", []).extend(quality.get("notes", [])[:8])
+    # Static parser/compiler failures discovered by the audit must never be omitted from
+    # the task result. Avoid duplicate diagnostics already returned by the repair loop.
+    for diagnostic in quality.get("issues", []):
+        if diagnostic.get("severity") != "error":
+            continue
+        rel = str(diagnostic.get("file") or "").replace("\\", "/")
+        message = str(diagnostic.get("message") or "language verification failed")[:450]
+        pretty = (f"{rel}: " if rel else "") + f"quality gate ({diagnostic.get('tool', 'analyzer')}): {message}"
+        duplicate = any(
+            (rel and str(existing.get("file") or "").replace("\\", "/") == rel
+             and (message in str(existing.get("msg", "")) or str(existing.get("msg", "")) in pretty))
+            or (not rel and message in str(existing.get("msg", "")))
+            for existing in issues
+        )
+        if not duplicate:
+            issues.append({"sid": None, "file": rel or None, "line": diagnostic.get("line"), "msg": pretty})
+
+    if quality.get("status") == "partial":
+        gaps = quality.get("coverage_gaps", [])
+        gap_text = ", ".join(dict.fromkeys(str(g.get("language", "unknown")) for g in gaps))
+        if gap_text:
+            context.progress("verify", "Verification is partial; no suitable local compiler/parser evidence for: " + gap_text[:220], "warn")
+        if require_logic_tests and quality.get("logical_status") in {"not_proven", "test_coverage_partial"}:
+            context.progress("verify", "Build/syntax checks are not a proof of business logic; test evidence is missing or incomplete.", "warn")
+        if quality.get("logical_status") == "needs_review":
+            context.progress("verify", f"Potential logic red flags need review ({len(quality.get('actionable_logic_hints', []))} finding(s)); checks do not prove the code is correct.", "warn")
+
+    if rollback_failure_note:
+        issues.append({"sid": None, "file": None, "msg": rollback_failure_note})
+
     report["vision"] = vision.analyze(extra.get("images", {}), state.plan.get("sections", [])) if vision_on else \
         {"status": "skipped", "note": "no vision model configured (optional)" if not _vision_enabled() else "browser checks did not run", "findings": []}
     report["repairs"] = repair_log
@@ -211,7 +436,7 @@ def verify(pid: str, do_repair: bool = True, with_browser: bool | None = None) -
     report["counts"] = counts
     state.errors = [(f"{i['sid']}: " if i["sid"] else "") + i["msg"] for i in issues]
     state.files = {p: pf.hash(p) for p in pf.tree()}
-    state.phase = "done" if not issues else "verify"
+    state.phase = "done" if not issues and quality.get("status") == "passed" else "verify"
     project_store.save(state)
     try:
         pf.write(".agent/report.json", json.dumps(report, indent=1)[:190000])
@@ -219,7 +444,8 @@ def verify(pid: str, do_repair: bool = True, with_browser: bool | None = None) -
         pass
     total = len(state.plan.get("sections", []))
     context.progress("verify", f"{len(issues)} issue(s) remaining after {state.repair_count} repair loop(s); checks: "
-                               f"{counts['passed']} passed, {counts['failed']} failed, {counts['skipped']} skipped")
+                               f"{counts['passed']} passed, {counts['failed']} failed, {counts['skipped']} skipped; "
+                               f"multi-language gate: {quality.get('status', 'unknown').upper()}")
     for f in report["vision"]["findings"]:
         context.progress("vision", f"[{f['viewport']}] {f['msg']}", "warn")
     db.touch_project(pid)
@@ -228,7 +454,9 @@ def verify(pid: str, do_repair: bool = True, with_browser: bool | None = None) -
             "sections_total": total, "files": list(state.files), "issues": state.errors,
             "repairs": state.repair_count, "browser": note, "shots": screenshots.list_shots(pf),
             "usage": state.usage, "open": f"generated_projects/{pid}/index.html", "stack": state.plan.get("stack", "html"),
-            "report": report, "warnings": [f"[{f['viewport']}] {f['msg']}" for f in report["vision"]["findings"]],
+            "report": report, "verification_status": quality.get("status", "unknown"),
+            "quality_gate": quality,
+            "warnings": [f"[{f['viewport']}] {f['msg']}" for f in report["vision"]["findings"]],
             "repair_log": repair_log[-30:]}
 
 
@@ -294,9 +522,13 @@ def run(pid: str, force: bool = False, tr: "progress.Tracker | None" = None) -> 
             project_store.save(state)
             o["detail"] = f"{len(state.sections_done)}/{len(state.plan.get('sections', []))} sections"
     with tr.step("verify") as o:
-        res = verify(pid)
-        o["status"] = "issues" if res["issues"] else "done"
-        o["detail"] = f"{len(res['issues'])} issue(s), {res['repairs']} repair loop(s)"
+        # Autopilot generation uses the deep read-only verification pass by default.
+        # It runs only pre-approved local compiler/build/test commands with existing
+        # dependencies; it never installs packages. Missing toolchains/tests stay partial.
+        res = verify(pid, deep=True)
+        o["status"] = "done" if res.get("verification_status") == "passed" and not res["issues"] else "issues"
+        o["detail"] = (f"{len(res['issues'])} issue(s), {res['repairs']} repair loop(s); "
+                       f"quality gate {res.get('verification_status', 'unknown')}")
     return {**res, "analysis": analysis, "backend_note": backend_note}
 
 
@@ -313,6 +545,6 @@ def edit(pid: str, section: str, instruction: str, tr: "progress.Tracker | None"
         history.add(pid, "user", f"edit {section}: {instruction}")
     with tr.step("verify") as o:
         res = verify(pid, do_repair=False, with_browser=False)
-        o["status"] = "issues" if res["issues"] else "done"
-        o["detail"] = f"{len(res['issues'])} issue(s)"
+        o["status"] = "done" if res.get("verification_status") == "passed" and not res["issues"] else "issues"
+        o["detail"] = f"{len(res['issues'])} issue(s); quality gate {res.get('verification_status', 'unknown')}"
     return res

@@ -39,6 +39,19 @@ def test_agent_files_not_readable_via_api():
     assert client.get(f"/projects/{pid}/file", params={"path": ".AGENT/state.json"}).status_code == 404
 
 
+@pytest.mark.parametrize(("path", "content"), [
+    ("src/App.tsx", "export default function App() { return <main /> }"),
+    ("src/main.ts", "export const ready: boolean = true"),
+    ("backend/app.py", "def ready():\n    return True\n"),
+])
+def test_ide_can_save_common_source_files(path, content):
+    pid = _pid()
+    response = client.put(f"/projects/{pid}/file", json={"path": path, "content": content}, headers=GOOD)
+    assert response.status_code == 200, response.text
+    saved = client.get(f"/projects/{pid}/file", params={"path": path}, headers=GOOD)
+    assert saved.status_code == 200 and saved.json()["content"] == content
+
+
 def test_oversized_save_and_read_rejected(monkeypatch):
     pid = _pid()
     big = "a" * (config.MAX_FILE_BYTES + 1)

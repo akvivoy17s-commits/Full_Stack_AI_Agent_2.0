@@ -44,7 +44,8 @@ def _runner(kind: str, pid: str, p: dict):
         res = orchestrator.run(pid, p.get("force", False), tr)
     elif kind in ("verify", "test"):                     # "test": browser + a11y + build checks only, never edits files
         with tr.step("verify") as o:
-            res = orchestrator.verify(pid, do_repair=p.get("repair", True) if kind == "verify" else False, with_browser=True if kind == "test" else None)
+            res = orchestrator.verify(pid, do_repair=p.get("repair", True) if kind == "verify" else False,
+                                      with_browser=True if kind == "test" else None, deep=p.get("deep", False))
             o["status"] = "issues" if res["issues"] else "done"
             o["detail"] = f"{len(res['issues'])} issue(s)"
     elif kind == "edit":

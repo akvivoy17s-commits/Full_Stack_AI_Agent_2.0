@@ -3,9 +3,9 @@ export const STYLES = ['Premium SaaS', 'Cinematic dark', 'Anime streaming platfo
 export const MOTION = ['subtle', 'balanced', 'expressive'] as const
 
 export const EXAMPLES: { label: string; text: string }[] = [
-  { label: 'Fitness app landing', text: 'Landing page for a fitness tracking app with pricing, testimonials and smooth scroll animations' },
-  { label: 'Online store', text: 'Online store for handmade candles with product list, cart, checkout and admin product management' },
-  { label: 'Team dashboard', text: 'Project management dashboard with login, tasks, projects, team roles and weekly progress charts' },
+  { label: 'Fitness app landing', text: 'Build a premium landing page for a fitness tracking app aimed at beginners and busy professionals. Goal: get visitors to start a free trial. Include a hero with a clear headline and two CTAs, workout tracking preview, benefits, how it works, pricing, honest sample testimonials, FAQ and final CTA. Use a dark navy background, electric lime accent, bold typography, editorial spacing, subtle scroll reveals and mobile-first responsive layouts. Make navigation and all CTAs work; do not invent real user metrics.' },
+  { label: 'Online store', text: 'Build a responsive storefront for a handmade candle brand. Include home, product catalogue, product detail, cart and checkout screens; product search and category filters; editable cart quantities; empty-cart, form-validation, loading and error states. Use warm ivory, charcoal and muted terracotta, elegant serif headings, product photography placeholders with useful alt text and refined hover transitions. Use sample products clearly as demo data. Never pretend payment succeeded unless a real backend payment provider is configured.' },
+  { label: 'Team dashboard', text: 'Build a responsive project management dashboard for a small software team. Include Overview, Projects, Tasks, Team and Settings views; task create/edit/delete, status and priority filters, search, due dates, project ownership, summary cards and a weekly progress chart. Use a clean dark interface with violet accents, compact data-dense tables, clear empty/loading/error states and accessible forms. Persist data using the selected supported backend/database, or label browser-only storage honestly. Do not show fake working authentication.' },
 ]
 
 export const STACK_LABELS: [string, string][] = [

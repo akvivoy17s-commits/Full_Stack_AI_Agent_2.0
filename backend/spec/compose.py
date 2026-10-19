@@ -12,7 +12,7 @@ from backend.stack import catalog as C
 from backend.stack.analyze import analyze, split_style
 from backend.spec import templates as T
 
-SPEC_VERSION = 1
+SPEC_VERSION = 3
 TYPES = {"string", "text", "int", "float", "bool", "datetime", "email", "url"}
 _FIELD = re.compile(r"^([a-z][a-z0-9_]{0,30}):(string|text|int|float|bool|datetime|email|url|ref\([A-Z][A-Za-z0-9]{1,30}\)|enum\([a-z0-9_|]{1,80}\))(!?)(@?)$")
 _NAME = re.compile(r"^[A-Z][A-Za-z0-9]{1,30}$")
@@ -88,8 +88,12 @@ def _entities(kind: str, text: str, auth: bool, needs: dict, contact: bool, role
     out = []
     if auth:
         out.append(_entity("User", *T.USER, roles))
+    user_scoped = {"CartItem", "WishlistItem", "Address"}
     for name, (toks, rd, wr) in src.items():
-        if not auth:                                           # no accounts -> no owner links, everything public
+        if not auth:
+            # Do not turn personal records into public shared records by stripping their owner field.
+            if kind == "ecommerce" and name in user_scoped:
+                continue
             toks = [t for t in toks if "ref(User)" not in t]
             rd, wr = "public", "public"
         out.append(_entity(name, toks, rd, wr, roles))

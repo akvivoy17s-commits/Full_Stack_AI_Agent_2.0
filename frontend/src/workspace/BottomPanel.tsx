@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { History, Save, Undo2 } from 'lucide-react'
 import BackendPanel from './BackendPanel'
+import TerminalPanel from './TerminalPanel'
+import ProjectScanPanel from './ProjectScanPanel'
+import GitPanel from './GitPanel'
 import { api, type Checkpoint, type Task, type TaskEvent } from '../services/api'
 
-type Tab = 'activity' | 'history' | 'checkpoints' | 'backend'
+type Tab = 'activity' | 'history' | 'checkpoints' | 'backend' | 'terminal' | 'scan' | 'git'
 const LVL = { info: 'text-zinc-300', warn: 'text-amber-300', error: 'text-red-400' } as const
 const ST: Record<string, string> = {
   succeeded: 'border-emerald-500/30 text-emerald-300', completed_with_issues: 'border-amber-500/30 text-amber-300',
@@ -30,10 +33,10 @@ export default function BottomPanel({ id, events, task, tasks, checkpoints, runn
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-1 border-b border-white/10 px-2 py-1.5" role="tablist">
-        {(['activity', 'history', 'checkpoints', 'backend'] as Tab[]).map((t) => (
+        {(['activity', 'history', 'checkpoints', 'backend', 'terminal', 'scan', 'git'] as Tab[]).map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}
             className={`rounded-md px-2.5 py-1 text-xs capitalize ${tab === t ? 'bg-accent/15 text-white' : 'text-zinc-500 hover:text-zinc-200'}`}>
-            {t === 'activity' ? 'Agent activity' : t === 'history' ? `Task history (${tasks.length})` : t === 'backend' ? 'Backend' : `Checkpoints (${checkpoints.length})`}
+            {t === 'activity' ? 'Agent activity' : t === 'history' ? `Task history (${tasks.length})` : t === 'backend' ? 'Backend' : t === 'terminal' ? 'Terminal' : t === 'scan' ? 'Project scan' : t === 'git' ? 'Git' : `Checkpoints (${checkpoints.length})`}
           </button>
         ))}
         {running && <span className="chip ml-auto border-accent/40 text-accentSoft"><span className="h-1.5 w-1.5 animate-blink rounded-full bg-accent" />running</span>}
@@ -65,6 +68,9 @@ export default function BottomPanel({ id, events, task, tasks, checkpoints, runn
           </ul>
         )}
         {tab === 'backend' && <BackendPanel id={id} running={running} onChanged={onChanged} />}
+        {tab === 'terminal' && <TerminalPanel id={id} />}
+        {tab === 'scan' && <ProjectScanPanel id={id} />}
+        {tab === 'git' && <GitPanel id={id} onChanged={onChanged} />}
         {tab === 'checkpoints' && (
           <ul className="space-y-1.5 font-sans">
             {checkpoints.length === 0 && <li className="text-zinc-600">No checkpoints yet. One is saved automatically before every task.</li>}

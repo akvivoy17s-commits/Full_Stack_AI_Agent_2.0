@@ -46,6 +46,46 @@ export default function ReportPanel({ report }: { report: Report | null }) {
           <div className="flex flex-wrap gap-2">{build.map((c) => <span key={c.name} title={c.detail} className={`chip ${COL[c.status]}`}>{c.name}: {c.status}</span>)}</div></section>
       )}
       <section><h3 className="label">Browser (Playwright, local dev server)</h3><Matrix checks={report.checks} /></section>
+      {report.backend_verification && (
+        <section>
+          <h3 className="label">Backend verification{report.backend_verification.deep ? ' · deep run' : ' · static run'}</h3>
+          <p className="mb-2 text-xs text-zinc-400">{report.backend_verification.note}</p>
+          <div className="flex flex-wrap gap-2">
+            {report.backend_verification.checks.map((c) => (
+              <span key={`${c.name}-${c.viewport}`} title={c.detail} className={`chip ${COL[c.status]}`}>{c.name}: {c.status}</span>
+            ))}
+          </div>
+          {report.backend_verification.issues.length > 0 && (
+            <ul className="mt-2 space-y-1">{report.backend_verification.issues.map((i, n) => (
+              <li key={`${i.file ?? 'backend'}-${n}`} className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-1.5 font-mono text-xs text-red-300">{i.file ? `${i.file}: ` : ''}{i.message}</li>
+            ))}</ul>
+          )}
+          {report.backend_verification.blocking_issues.length > 0 && (
+            <ul className="mt-2 space-y-1">{report.backend_verification.blocking_issues.map((i, n) => (
+              <li key={n} className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-1.5 font-mono text-xs text-red-300">{i.message}</li>
+            ))}</ul>
+          )}
+        </section>
+      )}
+      {report.repair_summary && (
+        <section>
+          <h3 className="label">Repair summary</h3>
+          <p className="text-xs text-zinc-400">
+            Section repair loops: {report.repair_summary.section_repair_loops} · Unresolved issues: {report.repair_summary.unresolved_count}
+            {report.repair_summary.file_repair ? ` · File repair: ${report.repair_summary.file_repair.status ?? 'unknown'} (${report.repair_summary.file_repair.attempts ?? 0} attempt(s))` : ''}
+          </p>
+          {report.repair_summary.file_repair?.stop && <p className="mt-1 text-xs text-amber-300">Repair stopped: {report.repair_summary.file_repair.stop}</p>}
+        </section>
+      )}
+      {(report.issues?.length ?? 0) > 0 && (
+        <section><h3 className="label">Unresolved code issues ({report.issues?.length ?? 0})</h3>
+          <ul className="space-y-1">{report.issues?.map((issue, i) => (
+            <li key={`${issue.file ?? issue.sid ?? 'issue'}-${i}`} className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-1.5 font-mono text-xs text-red-300">
+              <span className="text-red-200">{issue.file ? `${issue.file}${issue.line ? `:${issue.line}` : ''}` : issue.sid ? `section ${issue.sid}` : 'project'}:</span> {issue.msg}
+            </li>
+          ))}</ul>
+        </section>
+      )}
       {failed.length > 0 && (
         <section><h3 className="label">Failed details</h3>
           <ul className="space-y-1">{failed.map((c, i) => <li key={i} className="rounded-md border border-red-500/20 bg-red-500/5 px-3 py-1.5 font-mono text-xs text-red-300">[{c.viewport}] {c.name}: {c.detail}</li>)}</ul></section>

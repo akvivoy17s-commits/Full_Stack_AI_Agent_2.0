@@ -5,9 +5,18 @@ import re
 from html.parser import HTMLParser
 
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+# The section generator returns HTML fragments, not arbitrary React components. Keep an explicit
+# allow-list so a hallucinated tag such as <ProductCardList> cannot become an invalid JSX intrinsic.
+HTML_TAGS = set((
+    "a abbr address area article aside audio b base bdi bdo blockquote body br button canvas caption cite code col colgroup data datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 head header hgroup hr html i iframe img input ins kbd label legend li link main map mark menu meta meter nav noscript object ol optgroup option output p picture pre progress q rp rt ruby s samp script search section select slot small source span strong style sub summary sup table tbody td template textarea tfoot th thead time title tr track u ul var video wbr svg math"
+).split())
 SVG_TAGS = {t.lower(): t for t in ("linearGradient", "radialGradient", "clipPath", "feGaussianBlur", "feColorMatrix", "feOffset", "feBlend",
                                    "feMerge", "feMergeNode", "feFlood", "feComposite", "textPath", "foreignObject", "animateTransform", "animateMotion")}
-ATTR = {"class": "className", "for": "htmlFor", "tabindex": "tabIndex", "colspan": "colSpan", "rowspan": "rowSpan", "readonly": "readOnly",
+SVG_ELEMENTS = set((
+    "svg g defs symbol use path rect circle ellipse line polyline polygon text tspan title desc metadata clippath mask pattern marker lineargradient radialgradient stop filter feblend fecolormatrix fecomponenttransfer fecomposite feconvolvematrix fediffuselighting fedisplacementmap fedistantlight fedropshadow feflood fefunca fefuncb fefuncg fefuncr fegaussianblur feimage femerge femergenode femorphology feoffset fepointlight fespecularlighting fespotlight fetile feturbulence foreignobject textpath animatemotion animatetransform animate set view"
+).split())
+SAFE_UNKNOWN_ATTRS = {"id", "class", "style", "title", "role", "lang", "dir", "hidden", "tabindex", "slot"}
+ATTR = {"class": "className", "classname": "className", "for": "htmlFor", "htmlfor": "htmlFor", "tabindex": "tabIndex", "colspan": "colSpan", "rowspan": "rowSpan", "readonly": "readOnly",
         "maxlength": "maxLength", "minlength": "minLength", "autocomplete": "autoComplete", "autofocus": "autoFocus", "crossorigin": "crossOrigin",
         "srcset": "srcSet", "playsinline": "playsInline", "contenteditable": "contentEditable", "spellcheck": "spellCheck",
         "enctype": "encType", "novalidate": "noValidate", "datetime": "dateTime", "frameborder": "frameBorder", "xlink:href": "href"}
@@ -91,33 +100,61 @@ def _attrs(attrs, tag: str) -> str:
 class _J(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.out, self.stack, self.raw = [], [], None
+        self.out: list[str] = []
+        # (source tag, rendered tag) pairs let unsupported components be rendered safely as divs
+        # while still matching the original closing tag from the fragment.
+        self.stack: list[tuple[str, str]] = []
+        self.raw = None
+
+    def _is_known_tag(self, tag: str) -> bool:
+        return tag.lower() in HTML_TAGS or tag.lower() in SVG_ELEMENTS
 
     def _tag(self, t: str) -> str:
-        return SVG_TAGS.get(t, t)
+        low = t.lower()
+        if low in HTML_TAGS:
+            return low
+        if low in SVG_ELEMENTS:
+            return SVG_TAGS.get(low, low)
+        # Unknown React component names/custom tags are not valid in generated HTML fragments.
+        return "div"
+
+    def _safe_attrs(self, tag: str, attrs):
+        if self._is_known_tag(tag):
+            return attrs
+        safe = [(k, v) for k, v in attrs if k.lower() in SAFE_UNKNOWN_ATTRS or
+                k.lower().startswith(("aria-", "data-"))]
+        if not any(k.lower() == "data-generated-tag" for k, _ in safe):
+            safe.append(("data-generated-tag", tag.lower()[:64]))
+        return safe
 
     def handle_starttag(self, tag, attrs):
-        if tag == "style":
+        out_tag = self._tag(tag)
+        safe_attrs = self._safe_attrs(tag, attrs)
+        if tag.lower() == "style":
             self.raw = []
-        self.out.append(f"<{self._tag(tag)}{_attrs(attrs, tag)}" + (" />" if tag in VOID else ">"))
-        if tag not in VOID:
-            self.stack.append(tag)
+        self.out.append(f"<{out_tag}{_attrs(safe_attrs, out_tag)}" + (" />" if out_tag in VOID else ">"))
+        if out_tag not in VOID:
+            self.stack.append((tag, out_tag))
 
     def handle_startendtag(self, tag, attrs):
-        self.out.append(f"<{self._tag(tag)}{_attrs(attrs, tag)} />")
+        out_tag = self._tag(tag)
+        safe_attrs = self._safe_attrs(tag, attrs)
+        self.out.append(f"<{out_tag}{_attrs(safe_attrs, out_tag)} />")
 
     def handle_endtag(self, tag):
-        if tag in VOID:
+        if tag.lower() in VOID:
             return
-        if tag == "style" and self.raw is not None:
+        if tag.lower() == "style" and self.raw is not None:
             css = "".join(self.raw).replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
             self.out.append("{`" + css + "`}")
             self.raw = None
-        if tag in self.stack:
-            while self.stack and self.stack[-1] != tag:     # close anything left open (model markup is not always clean)
-                self.out.append(f"</{self._tag(self.stack.pop())}>")
-            self.stack.pop()
-            self.out.append(f"</{self._tag(tag)}>")
+        if any(source_tag == tag for source_tag, _ in self.stack):
+            # Close intervening malformed elements before closing the requested source element.
+            while self.stack and self.stack[-1][0] != tag:
+                _source_tag, rendered_tag = self.stack.pop()
+                self.out.append(f"</{rendered_tag}>")
+            _source_tag, rendered_tag = self.stack.pop()
+            self.out.append(f"</{rendered_tag}>")
 
     def handle_data(self, data):
         if self.raw is not None:
@@ -129,7 +166,8 @@ class _J(HTMLParser):
 
     def result(self) -> str:
         while self.stack:
-            self.out.append(f"</{self._tag(self.stack.pop())}>")
+            _source_tag, rendered_tag = self.stack.pop()
+            self.out.append(f"</{rendered_tag}>")
         return "".join(self.out)
 
 

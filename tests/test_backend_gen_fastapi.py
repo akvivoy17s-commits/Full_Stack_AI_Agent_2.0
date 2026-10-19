@@ -205,18 +205,20 @@ def test_access_rules_ownership_and_auth_flow_with_fake_database():
         u1, u2 = {"id": "1", "role": "user"}, {"id": "2", "role": "user"}
         admin = {"id": "99", "role": S["adminRole"]}
         db.create("User", {**values(E["User"], False), "email": "x@x.io"})
-        mine = svc.create_record(db, order, values(order), u1)
+        # Checkout is the customer-facing order creator; generic order CRUD is admin-only.
+        mine = db.create("Order", {"user_id": 1, "status": "pending", "total": 1.5, "created_at": "2030-01-01T00:00:00.000Z"})
         assert mine["user_id"] == 1
         assert status(svc.get_record, db, order, mine["id"], u1) == 200 and status(svc.get_record, db, order, mine["id"], admin) == 200
         assert status(svc.get_record, db, order, mine["id"], u2) == 404            # other users cannot see it
         assert status(svc.update_record, db, order, mine["id"], {}, u2) == 404 and status(svc.delete_record, db, order, mine["id"], u2) == 404
+        assert status(svc.update_record, db, order, mine["id"], {}, u1) == 403 and status(svc.delete_record, db, order, mine["id"], u1) == 403
         assert svc.list_records(db, order, {}, u2)["total"] == 0 and svc.list_records(db, order, {}, u1)["total"] == 1 and svc.list_records(db, order, {}, admin)["total"] == 1
         assert status(svc.get_record, db, order, "abc", admin) == 404 and status(svc.get_record, db, order, "999999999", admin) == 404
-        assert status(svc.create_record, db, order, {**values(order), "user_id": 2}, u1) == 400   # the owner link is never client-controlled
+        assert status(svc.create_record, db, order, {**values(order), "user_id": 2}, u1) == 403   # generic order creation is admin-only; checkout creates customer orders
         item = E["OrderItem"]                                   # has a client-writable reference (order_id)
         ref = next(f["name"] for f in item["fields"] if f["type"] == "ref" and f["name"] != item["ownerField"])
         assert status(svc.create_record, db, item, {**values(item), ref: 123456}, u1) == 400
-        svc.delete_record(db, order, mine["id"], u1)
+        svc.delete_record(db, order, mine["id"], admin)
         assert status(svc.get_record, db, order, mine["id"], u1) == 404
 
         # admin-only writes, public reads

@@ -1,10 +1,9 @@
 """Template scaffold (local) + one LLM call per section (resumable). Output = section html/css only."""
 import re
-from datetime import datetime
 from html import escape
 from backend import config
 from backend.config import TEMPLATES_DIR
-from backend.agent import prompts, llm, schemas, context
+from backend.agent import prompts, llm, schemas, context, prompt_context
 from backend.engines import design_engine, animation_engine
 from backend.memory import project_store
 
@@ -29,124 +28,31 @@ def _label(sid: str) -> str:
     return sid.replace("-", " ").title()
 
 
-LAYOUT_DIR = {"landing": "landing_page", "dashboard": "dashboard", "portfolio": "portfolio"}
-
-
-NAV_JS = """(() => {
-  'use strict';
-  const nav = document.querySelector('.nav');
-  const menu = nav && nav.querySelector('nav');
-  const wrap = nav && nav.querySelector('.wrap');
-  if (!nav || !menu || !wrap) return;
-  if (!menu.id) menu.id = 'site-nav';
-
-  // Progressive enhancement: without JS the nav stays a scrollable row (see base.css).
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'nav-toggle';
-  btn.setAttribute('aria-expanded', 'false');
-  btn.setAttribute('aria-controls', menu.id);
-  btn.setAttribute('aria-label', 'Open menu');
-  btn.innerHTML = '<span aria-hidden="true"></span>';
-  wrap.appendChild(btn);
-
-  const mq = window.matchMedia('(max-width: 800px)');
-  const set = (open, refocus) => {
-    nav.classList.toggle('open', open);
-    btn.setAttribute('aria-expanded', String(open));
-    btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
-    if (!open && refocus) btn.focus();
-  };
-  btn.addEventListener('click', () => set(!nav.classList.contains('open')));
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && nav.classList.contains('open')) set(false, true);
-  });
-  menu.addEventListener('click', (e) => { if (e.target.closest('a')) set(false); });
-  document.addEventListener('click', (e) => {
-    if (nav.classList.contains('open') && !nav.contains(e.target)) set(false);
-  });
-  const onChange = () => { if (!mq.matches) set(false); };
-  if (mq.addEventListener) mq.addEventListener('change', onChange);
-
-  // Scroll-spy: mark the link of the section in view with aria-current.
-  const links = [...nav.querySelectorAll('a[href^="#"]:not(.brand):not(.btn)')];
-  const targets = new Map();
-  links.forEach((a) => {
-    const el = document.getElementById(a.getAttribute('href').slice(1));
-    if (!el || !el.closest('main')) return;
-    if (!targets.has(el)) targets.set(el, []);
-    targets.get(el).push(a);
-  });
-  if ('IntersectionObserver' in window && targets.size) {
-    const io = new IntersectionObserver((entries) => entries.forEach((en) => {
-      if (!en.isIntersecting) return;
-      links.forEach((a) => a.removeAttribute('aria-current'));
-      (targets.get(en.target) || []).forEach((a) => a.setAttribute('aria-current', 'true'));
-    }), { rootMargin: '-45% 0px -50% 0px' });
-    targets.forEach((_, el) => io.observe(el));
-  }
-})();
-"""
-
-# Small additions that belong to code_engine's own markup (footer links, CTA inside the mobile menu).
-EXTRA_CSS = """
-.footer-nav ul{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 24px;list-style:none;margin:0 0 1.2em;padding:0}
-.footer-nav li+li{margin-top:0}
-.footer-nav a{display:inline-block;padding:.45em 0;color:var(--fg);text-decoration:none}
-.footer-nav a:hover{text-decoration:underline;text-underline-offset:.2em}
-.footer-note{margin:0 auto;font-size:.88rem}
-.nav .nav-cta-mobile{display:none}
-@media(max-width:800px){.nav:has(.nav-toggle) .nav-cta-mobile{display:block;padding-top:16px}.nav .nav-cta-mobile .btn{width:100%}}
-"""
-
-NAV_MAX = 6
+LAYOUT_DIR = {"landing": "landing_page", "dashboard": "dashboard", "portfolio": "portfolio", "authentication": "authentication"}
 
 
 def base_css(layout: str) -> str:
     """Shared utility classes + optional layout-specific CSS (templates/<layout>/layout.css)."""
-    css = _tpl("landing_page/base.css") + EXTRA_CSS
+    css = _tpl("landing_page/base.css")
     extra = TEMPLATES_DIR / LAYOUT_DIR.get(layout, "landing_page") / "layout.css"
     return css + ("\n" + extra.read_text(encoding="utf-8") if extra.is_file() else "")
 
 
 def nav_footer(layout: str, brand: str, secs: list[str]) -> tuple[str, str]:
-    """Semantic, JS-free markup. The mobile menu button is added by js/nav.js (HTML stack)."""
     brand = escape(brand or "Brand")
-    first = secs[0] if secs else "main"
+    if layout == "authentication":
+        return "", ""
     if layout == "dashboard":
         links = "".join(f'<li><a href="#{s}">{escape(_label(s))}</a></li>' for s in secs)
-        return (f'<aside class="side" aria-label="Sidebar"><a class="brand" href="#{first}">{brand}</a>'
-                f'<nav aria-label="Dashboard sections"><ul>{links}</ul></nav></aside>', "")
+        return (f'<aside class="side" aria-label="Sidebar"><a class="brand" href="#{secs[0]}">{brand}</a><nav><ul>{links}</ul></nav></aside>', "")
     skip = ("hero", "cta") if layout == "landing" else ("hero",)
-    items = [s for s in secs if s not in skip][:NAV_MAX]
-    links = "".join(f'<li><a href="#{s}">{escape(_label(s))}</a></li>' for s in items)
+    links = "".join(f'<li><a href="#{s}">{escape(_label(s))}</a></li>' for s in secs if s not in skip)
     last = secs[-1] if layout == "portfolio" else "cta"
     label = "Contact" if layout == "portfolio" else "Get started"
     cta = f'<a class="btn btn-primary" href="#{last}">{label}</a>' if last in secs else ""
-    cta_mobile = f'<li class="nav-cta-mobile"><a class="btn btn-primary" href="#{last}">{label}</a></li>' if cta else ""
-    nav = (f'<header class="nav"><div class="wrap"><a class="brand" href="#{first}">{brand}</a>'
-           f'<nav id="site-nav" aria-label="Primary"><ul>{links}{cta_mobile}</ul></nav>{cta}</div></header>')
-    flinks = "".join(f'<li><a href="#{s}">{escape(_label(s))}</a></li>' for s in items)
-    fnav = f'<nav class="footer-nav" aria-label="Footer"><ul>{flinks}</ul></nav>' if items else ""
-    footer = (f'<footer><div class="wrap">{fnav}'
-              f'<p class="footer-note">&copy; {datetime.now().year} {brand}. All rights reserved.</p></div></footer>')
-    return nav, footer
-
-
-def _enhance_shell(html: str, state) -> str:
-    """Page-level a11y/SEO: main landmark target, nav script, meta description, theme colour."""
-    html = html.replace("<main>", '<main id="main" tabindex="-1">', 1)
-    html = html.replace('<script src="js/motion.js" defer></script>',
-                        '<script src="js/motion.js" defer></script>\n<script src="js/nav.js" defer></script>', 1)
-    desc = str(state.plan.get("tagline") or state.plan.get("description") or "").strip()
-    meta = f'<meta name="description" content="{escape(desc[:160], quote=True)}">\n' if desc else ""
-    meta += f'<meta name="theme-color" content="{escape(str(((state.design or {}).get("colors") or {}).get("bg") or "#0b0b14"), quote=True)}">\n'
-    html = html.replace("<title>", meta + "<title>", 1)
-    if animation_engine.wants_3d(getattr(state, "brief", "")) and state.plan.get("stack") != "react":
-        script = '<script type="module" src="js/three-hero.js"></script>'
-        if script not in html:
-            html = html.replace("</body>", script + "\n</body>", 1)
-    return html
+    nav = (f'<header class="nav"><div class="wrap"><a class="brand" href="#{secs[0]}">{brand}</a>'
+           f'<nav><ul>{links}</ul></nav>{cta}</div></header>')
+    return nav, f'<footer><div class="wrap">&copy; {brand}. All rights reserved.</div></footer>'
 
 
 def scaffold(pf, state) -> None:
@@ -157,15 +63,12 @@ def scaffold(pf, state) -> None:
     pf.write("css/tokens.css", design_engine.render_tokens(state.design) + animation_engine.css_vars(state.motion))
     pf.write("css/base.css", base_css(layout))
     animation_engine.install(pf)
-    pf.write("js/nav.js", NAV_JS)
     secs = state.plan["sections"]
     nav, footer = nav_footer(layout, state.plan.get("brand") or "Brand", secs)
-    nav = '<a class="skip-link" href="#main">Skip to main content</a>\n' + nav
     markers = "\n".join(f"<!--SECTION:{s}--><!--/SECTION:{s}-->" for s in secs)
     html = (_tpl(f"{LAYOUT_DIR.get(layout, 'landing_page')}/index.html").replace("{{TITLE}}", escape(state.plan.get("brand") or "Brand"))
             .replace("{{FONTS}}", design_engine.fonts_link(state.design))
             .replace("{{NAV}}", nav).replace("{{SECTIONS}}", markers).replace("{{FOOTER}}", footer))
-    html = _enhance_shell(html, state)
     pf.write("index.html", html)
     pf.write("css/sections.css", RM)
 
@@ -247,14 +150,6 @@ def normalize_existing_ids(pf, state) -> int:
 
 def _insert(pf, state, sid: str, html: str, css: str) -> None:
     html = clean_html(html)
-    # Three.js section scripts are stripped from model output. Mount the existing local runtime
-    # deterministically only when the brief explicitly requests 3D.
-    if sid == "hero" and animation_engine.wants_3d(getattr(state, "brief", "")):
-        if not re.search(r"""\bdata-three-hero\b|data-3d\s*=\s*['"]three-hero['"]""", html, re.I):
-            m = re.search(r"<([a-z][a-z0-9-]*)\b([^>]*)>", html, re.I)
-            if m:
-                tag, attrs = m.group(1), m.group(2)
-                html = html[:m.start()] + f"<{tag}{attrs} data-three-hero>" + html[m.end():]
     html = dedupe_ids(html, set(state.plan.get("sections", [])), sid)
     if state.plan.get("stack") == "react":
         from backend.engines import react_engine
@@ -285,14 +180,8 @@ def generate_sections(pf, state, force: bool = False) -> dict:
             continue                                   # resume: never regenerate finished sections
         context.progress("code", f"Generating section '{sid}' ({n}/{len(secs)})")
         try:
-            hint = prompts.HINTS.get(sid, 'rich, detailed section')
-            if sid == "hero" and animation_engine.wants_3d(state.brief):
-                primary = ((state.design or {}).get("colors") or {}).get("primary", "#7c5cff")
-                hint += (f" 3D IS REQUIRED BY THE USER: add data-three-hero and "
-                         f'data-three-color="{primary}" to the visual wrapper. Keep all hero text and buttons '
-                         "as real accessible DOM elements; the canvas is decorative. Include CSS fallback styling.")
-            user = (f"{state.compact(900)}\nSECTION: {sid}\nHINT: {hint}"
-                    f"\nDONE: {','.join(state.sections_done)}")
+            user = prompt_context.section_user_context(
+                state, sid, prompts.HINTS.get(sid, "rich, detailed section"))
             data, u = llm.call_json("section", prompts.SECTION, user, None, config.SECTION_MAX_TOKENS, schema=schemas.SectionOut)
             total["in"] += u["in"]
             total["out"] += u["out"]

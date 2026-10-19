@@ -5,7 +5,7 @@ User edits are never overwritten: a file is rewritten only if it is new or still
 import hashlib
 import json
 
-from backend.gen import django_gen, express, fastapi_gen, flask_gen, model, nest, project, spring_gen
+from backend.gen import django_gen, express, fastapi_gen, flask_gen, model, nest, project, spring_gen, env_contract
 from backend.stack import catalog
 
 GENERATORS = {"express": express, "fastapi": fastapi_gen, "flask": flask_gen, "nestjs": nest, "django": django_gen, "spring": spring_gen}
@@ -42,6 +42,18 @@ def run(pf, spec: dict, stack: dict) -> dict:
     m = model.build(spec, stack)
     files = gen.generate(spec, stack, m)
     files.update(project.extras(spec, stack, m))
+    # Include public frontend configuration separately from private backend secrets.
+    try:
+        existing_frontend_env = pf.read(".env.example")
+    except (OSError, ValueError):
+        existing_frontend_env = ""
+    try:
+        root_gitignore = pf.read(".gitignore")
+    except (OSError, ValueError):
+        root_gitignore = ""
+    if root_gitignore:
+        files.setdefault(".gitignore", root_gitignore)
+    files.update(env_contract.enrich_files(files, spec, stack, existing_frontend_env))
     prev = _load(pf).get("hashes", {})
     hashes, written, kept = {}, [], []
     for rel, text in files.items():

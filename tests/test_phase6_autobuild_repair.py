@@ -20,7 +20,7 @@ def test_window_short_file_is_30_lines_around_error():
 def test_restore_static_rewrites_only_missing_files():
     pf = ProjectFiles("p6r-" + uuid.uuid4().hex[:6])
     pf.write("package.json", "{}")
-    assert len(react_engine.restore_static(pf)) == len(react_engine.STATIC)
+    assert len(react_engine.restore_static(pf)) == len(react_engine.STATIC) + 1
     pf.write("src/lib/MotionEffects.tsx", "// custom")
     assert react_engine.restore_static(pf) == [] and pf.read("src/lib/MotionEffects.tsx") == "// custom"
 

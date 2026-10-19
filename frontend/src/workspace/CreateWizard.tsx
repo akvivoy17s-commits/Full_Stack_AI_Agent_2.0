@@ -5,6 +5,7 @@ import TechnologyConfig, { savedStackDraft } from './TechnologyConfig'
 import SpecEditor from './SpecEditor'
 import { loadPresets, removePreset, savePreset, type Preset } from './presets'
 import { EXAMPLES, MOTION, STACK_LABELS, STYLES, composeBrief } from './briefing'
+import { AUTOPILOT_PROMPT_MAX_CHARS, USER_PROMPT_MAX_CHARS } from './promptLimits'
 
 const DRAFT_KEY = 'fullstack-agent-brief-draft-v1'
 const STEPS = ['Describe', 'Technology', 'Data & pages', 'Review'] as const
@@ -87,13 +88,21 @@ export default function CreateWizard({ onCreate, onAutoBuild }: Props) {
           <div><p className="text-sm font-semibold text-white">Autopilot builder</p><p className="mt-1 text-xs text-zinc-400">One prompt. The agent chooses a supported stack, generates, builds and checks it.</p></div>
         </div>
         <label className="label" htmlFor="autopilot-prompt">Describe the complete website or web app</label>
-        <textarea id="autopilot-prompt" rows={7} maxLength={15000} className="field resize-y" value={brief} autoFocus
+        <textarea id="autopilot-prompt" rows={7} maxLength={AUTOPILOT_PROMPT_MAX_CHARS} className="field resize-y" value={brief} autoFocus
           onChange={(e) => setBriefText(e.target.value)}
           onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && briefOk && !busy) void createAutomatically() }}
           placeholder="Example: Build a polished todo app with projects, priorities, due dates, search, dark mode, add/edit/delete, and saved tasks. Make it responsive and verify the production build." />
-        <div className="mt-1 flex items-center justify-between text-xs text-zinc-500"><span>Ctrl + Enter to build</span><span>{brief.length}/15000</span></div>
+        <div className="mt-1 flex items-center justify-between text-xs text-zinc-500"><span>Ctrl + Enter to build</span><span>{brief.length.toLocaleString()}/{AUTOPILOT_PROMPT_MAX_CHARS.toLocaleString()}</span></div>
         {!brief.trim() && <div className="mt-3 flex flex-wrap gap-2" aria-label="Prompt examples">{EXAMPLES.map((x) => <button key={x.label} type="button" className="chip border-white/15 text-zinc-300 hover:border-white/40" onClick={() => setBriefText(x.text)}>{x.label}</button>)}</div>}
       </section>
+      <details className="rounded-xl border border-accent/20 bg-accent/[0.03] p-3 text-xs leading-5 text-zinc-400">
+        <summary className="cursor-pointer font-medium text-zinc-200">How to get a more accurate website from your prompt</summary>
+        <div className="mt-3 space-y-2">
+          <p>Describe the goal, audience, pages, exact features, visual style, colors, interactions, and any database or API needs. Put non-negotiable requirements near the end too; the agent now reads the whole prompt and carries a requirement-focused summary into each generation and repair step.</p>
+          <pre className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-white/10 bg-black/30 p-3 font-sans text-zinc-300">Build a [type of website] for [audience]. Goal: [main goal]. Pages/sections: [list]. Must-have features: [list]. Design: [style, colors, typography, reference details]. Interactions: [what each button/form/filter should do]. Data/API: [database, API, or local-only]. Constraints: [mobile layout, accessibility, content to include/avoid]. Verify the build and report anything that is not actually implemented.</pre>
+          <button type="button" className="chip border-accent/30 text-accent hover:border-accent/60" onClick={() => setBriefText('Build a modern, responsive website for [business/product] aimed at [target audience]. Main goal: [goal]. Pages/sections: [list each page or section]. Must-have features: [list exact features]. Design style: [visual style], colors [palette], typography [fonts], and animations [subtle/balanced/expressive]. Interactions: explain what each CTA, form, filter, navigation item and menu must do. Data/API: [database and integrations, or frontend-only]. Constraints: mobile-first, accessible, clear loading/empty/error states, and do not invent credentials or claim unconfigured services work. Run available checks and honestly report any gaps.')}>Use prompt template</button>
+        </div>
+      </details>
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs leading-5 text-zinc-400">
         <p className="font-medium text-zinc-200">What happens automatically</p>
         <p className="mt-1">Requirement and data-model inference · compatible stack selection · source generation · production build/type-check · bounded repair attempts · verification report.</p>
@@ -127,12 +136,12 @@ export default function CreateWizard({ onCreate, onAutoBuild }: Props) {
         <div className="space-y-3">
           <div>
             <label className="label" htmlFor="brief">What should the agent build?</label>
-            <textarea id="brief" rows={6} maxLength={1700} className="field resize-y" value={brief} autoFocus
+            <textarea id="brief" rows={6} maxLength={USER_PROMPT_MAX_CHARS} className="field resize-y" value={brief} autoFocus
               onChange={(e) => setBriefText(e.target.value)}
               onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && briefOk) go(1) }}
               placeholder="Describe the product, its pages, who uses it and what data it stores." />
             <div className="mt-1 flex items-center justify-between text-xs text-zinc-500">
-              <span>Ctrl + Enter to continue</span><span>{brief.length}/1700</span>
+              <span>Ctrl + Enter to continue</span><span>{brief.length.toLocaleString()}/{USER_PROMPT_MAX_CHARS.toLocaleString()}</span>
             </div>
           </div>
           {presets.length > 0 && (

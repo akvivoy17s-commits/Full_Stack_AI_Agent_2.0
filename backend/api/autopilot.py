@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 from backend.agent.state import AgentState
+from backend.agent.prompt_limits import AUTOPILOT_PROMPT_MAX_CHARS
 from backend.agent import tasks
 from backend.memory import history, project_store
 from backend.storage import db
@@ -22,7 +23,7 @@ from backend.agent.intent import APP_PROMPT as _APP_PROMPT, MARKETING_PROMPT as 
 
 
 class AutoBuildRequest(BaseModel):
-    prompt: str = Field(min_length=5, max_length=15000)
+    prompt: str = Field(min_length=5, max_length=AUTOPILOT_PROMPT_MAX_CHARS)
 
     @field_validator("prompt")
     @classmethod

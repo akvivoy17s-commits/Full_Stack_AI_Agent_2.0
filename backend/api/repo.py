@@ -73,3 +73,88 @@ def resume(pid: str):
 def context(pid: str, budget: int = 1500):
     _project(pid)
     return {"context": task_memory.context(pid, max(200, min(budget, 6000)))}
+
+# Project-aware analysis and Git inspection, used by the IDE before/after edits.
+from backend.tools import git as git_tools, project_scanner, language_analyzer
+from backend.tools.project_files import ProjectFiles
+
+
+class AnalysisRequest(BaseModel):
+    deep: bool = False  # opt-in: may invoke existing local compiler/build/test scripts; never installs dependencies
+
+
+class BranchRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    confirm: bool = False
+
+
+class CommitRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=200)
+    paths: list[str] = Field(min_length=1, max_length=30)
+    confirm: bool = False
+
+
+@router.get("/projects/{pid}/scan")
+def project_scan(pid: str):
+    """Return a bounded project map: technology hints, entry points, routes and manifests."""
+    _project(pid)
+    return project_scanner.scan(ProjectFiles(pid))
+
+
+@router.post("/projects/{pid}/analyze")
+def project_language_analysis(pid: str, body: AnalysisRequest):
+    """Analyze language syntax, conservative logic/redundancy hints, and installed toolchain coverage."""
+    _project(pid)
+    if body.deep and db.active_task(pid):
+        raise HTTPException(409, "project has a running task; cancel it before running compiler/build checks")
+    try:
+        return language_analyzer.analyze_project(ProjectFiles(pid), deep=body.deep)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from None
+
+
+@router.get("/projects/{pid}/git")
+def git_status(pid: str):
+    _project(pid)
+    return git_tools.status(pid)
+
+
+@router.get("/projects/{pid}/git/diff")
+def git_diff(pid: str, path: str | None = None):
+    _project(pid)
+    try:
+        return git_tools.diff(pid, path)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+
+
+@router.get("/projects/{pid}/git/log")
+def git_log(pid: str, limit: int = 10):
+    _project(pid)
+    return git_tools.log(pid, max(1, min(limit, 30)))
+
+
+@router.post("/projects/{pid}/git/branch")
+def git_create_branch(pid: str, body: BranchRequest):
+    _project(pid)
+    if db.active_task(pid):
+        raise HTTPException(409, "project has a running task; cancel it first")
+    try:
+        result = git_tools.create_branch(pid, body.name.strip(), body.confirm)
+        db.audit("git_branch", pid, result["branch"])
+        return result
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None
+
+
+@router.post("/projects/{pid}/git/commit")
+def git_commit(pid: str, body: CommitRequest):
+    _project(pid)
+    if db.active_task(pid):
+        raise HTTPException(409, "project has a running task; cancel it first")
+    try:
+        result = git_tools.commit(pid, body.message, body.paths, body.confirm)
+        db.audit("git_commit", pid, f"{result['commit']} {result['message'][:100]}")
+        return result
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from None

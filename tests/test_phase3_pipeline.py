@@ -54,6 +54,16 @@ def test_html2jsx_attributes_svg_style_text():
     assert "{'{'}" in j and "{'}'}" in j and "defaultValue" in j and "<br />" in j and "<img" in j and "/>" in j
 
 
+def test_html2jsx_normalizes_already_camelcased_react_attributes():
+    # HTMLParser lowercases attribute names, including className/htmlFor emitted by an LLM.
+    j = html2jsx.convert('<main className="register"><h1 className="title">Create account</h1>'
+                         '<label htmlFor="email">Email</label><input id="email" /></main>')
+    assert 'className="register"' in j
+    assert 'className="title"' in j
+    assert 'htmlFor="email"' in j
+    assert 'classname=' not in j and 'htmlfor=' not in j
+
+
 def test_html2jsx_closes_unbalanced_markup_and_drops_comments_handlers():
     j = html2jsx.convert('<div><!-- c --><p onclick="x()">hi</div>')
     assert j == "<div><p>hi</p></div>"
@@ -141,10 +151,11 @@ def test_same_issue_is_never_repaired_more_than_twice():
     finally:
         llm.call_json = orig
     log = [e for e in r["repair_log"] if e["sid"] == "hero"]
-    assert list(dict.fromkeys(e["method"] for e in log)) == ["patch", "regen"] and all(e["outcome"] == "still_failing" for e in log)
-    assert calls.count("repair") == 1 and r["issues"]                                     # 2 tries max, then reported honestly
-    assert {x["attempt"] for x in db.list_repair_attempts("t-rep-a") if x["sid"] == "hero"} == {1, 2}      # attempts 1 and 2 only, never a 3rd
-    assert client.get("/projects/t-rep-a/repairs").json()[0]["outcome"] == "still_failing"
+    assert list(dict.fromkeys(e["method"] for e in log)) == ["patch"]
+    assert log and log[-1]["outcome"] == "no_progress_same_source"
+    assert calls.count("repair") == 1 and r["issues"]  # Stop after one proven no-op instead of repeating it.
+    assert {x["attempt"] for x in db.list_repair_attempts("t-rep-a") if x["sid"] == "hero"} == {1}
+    assert client.get("/projects/t-rep-a/repairs").json()[0]["outcome"] == "no_progress_same_source"
 
 
 def test_successful_repair_is_recorded_as_fixed():

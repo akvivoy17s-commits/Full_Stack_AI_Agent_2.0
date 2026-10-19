@@ -31,6 +31,19 @@ def effective_output_budget(kind: str, requested: int | None, profile: str = "fa
     return min(base, cap) if cap else base
 
 
+def _stream_read_timeout(settings: dict) -> float:
+    """Allow slow local-model prefill without the old hard-coded 60s read timeout.
+
+    timeout_s is the overall call deadline; read timeout is an inactivity guard. Cap a single
+    silent read at five minutes so cancellation/stuck-model diagnosis remains bounded.
+    """
+    try:
+        overall = float(settings.get("timeout_s", 300))
+    except (TypeError, ValueError):
+        overall = 300.0
+    return max(5.0, min(overall, 300.0))
+
+
 def parse_json(text: str) -> dict:
     t = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.M).strip()
     i, j = t.find("{"), t.rfind("}")
@@ -152,7 +165,7 @@ def _chat_ollama(system: str, user: str, model: str, max_tokens: int, s: dict, i
     deadline = time.monotonic() + s["timeout_s"]
     parts, usage = [], {"in": 0, "out": 0}
     try:
-        with httpx.stream("POST", url, json=body, timeout=httpx.Timeout(connect=5, read=60, write=30, pool=5)) as r:
+        with httpx.stream("POST", url, json=body, timeout=httpx.Timeout(connect=10, read=_stream_read_timeout(s), write=30, pool=10)) as r:
             if r.status_code == 404:
                 raise OllamaError("model_missing", f"Model '{model}' not found. Run: ollama pull {model}")
             if r.status_code != 200:
@@ -191,7 +204,7 @@ def _chat_openai(system: str, user: str, model: str, max_tokens: int, s: dict,
     parts, usage = [], {"in": 0, "out": 0}
     try:
         with httpx.stream("POST", base + "/chat/completions", json=body, headers=P.auth_headers(key),
-                          timeout=httpx.Timeout(connect=5, read=60, write=30, pool=5)) as r:
+                          timeout=httpx.Timeout(connect=10, read=_stream_read_timeout(s), write=30, pool=10)) as r:
             if r.status_code != 200:
                 r.read()
                 raise P.classify_http(r.status_code, redact(r.text), P.parse_retry_after(r.headers.get("retry-after")))
@@ -233,7 +246,7 @@ def _chat_anthropic(system: str, user: str, model: str, max_tokens: int, s: dict
     current_event = ""
     try:
         with httpx.stream("POST", base + "/messages", json=body, headers=P.anthropic_headers(key),
-                          timeout=httpx.Timeout(connect=5, read=60, write=30, pool=5)) as r:
+                          timeout=httpx.Timeout(connect=10, read=_stream_read_timeout(s), write=30, pool=10)) as r:
             if r.status_code != 200:
                 r.read()
                 raise P.classify_http(r.status_code, redact(r.text), P.parse_retry_after(r.headers.get("retry-after")))
@@ -287,6 +300,21 @@ def call_json(kind: str, system: str, user: str, model: str | None = None, max_t
     if config.MOCK_LLM:
         data = _mock(kind, user)
         return (schema.model_validate(data).model_dump() if schema else data), {"in": 0, "out": 0}
+    # Pull a compact, task-specific excerpt from the complete bundled guides. The
+    # knowledge base stays local; never send every guide to the model at once.
+    if kind in {"blueprint", "section", "repair"}:
+        try:
+            from backend.knowledge.guide_retriever import enrich_user_context
+            import re as _re
+            file_match = _re.search(r"(?im)^FILE:\s*([^\r\n]+)", str(user or ""))
+            file_path = file_match.group(1).strip() if file_match else ""
+            guide_task = kind
+            if kind == "repair" and not file_path and "SECTION:" in str(user) and ("HTML:" in str(user) or "CSS:" in str(user)):
+                guide_task = "frontend_repair"
+            guide_budget = {"blueprint": 1900, "section": 1900, "repair": 2100}.get(kind, 1700)
+            user = enrich_user_context(guide_task, user, max_chars=guide_budget, file_path=file_path)
+        except Exception as exc:  # knowledge retrieval must never block a coding task
+            context.progress("knowledge", f"Guide retrieval unavailable; continuing with project context ({type(exc).__name__})", "warn")
     s = db.get_settings()
     max_tokens = effective_output_budget(kind, max_tokens, s.get("generation_profile", "fast"))
     primary_provider = str(s.get("provider", "ollama"))

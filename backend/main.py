@@ -14,7 +14,8 @@ from pydantic import BaseModel, Field
 
 from backend import config
 from backend.agent.state import AgentState
-from backend.api import system, tasks as tasks_api, stack as stack_api, spec as spec_api, backend_gen as backend_api, repo as repo_api, autopilot as autopilot_api, debug as debug_api
+from backend.agent.prompt_limits import COMPOSED_BRIEF_MAX_CHARS, EDIT_REPAIR_PROMPT_MAX_CHARS
+from backend.api import system, tasks as tasks_api, stack as stack_api, spec as spec_api, backend_gen as backend_api, repo as repo_api, autopilot as autopilot_api, debug as debug_api, terminal as terminal_api
 from backend import stack as stack_engine
 from backend import spec as spec_engine
 from backend.spec import memory as spec_memory
@@ -50,10 +51,11 @@ app.include_router(backend_api.router)
 app.include_router(repo_api.router)
 app.include_router(autopilot_api.router)
 app.include_router(debug_api.router)
+app.include_router(terminal_api.router)
 
 
 class NewProject(BaseModel):
-    brief: str = Field(min_length=5, max_length=2000)
+    brief: str = Field(min_length=5, max_length=COMPOSED_BRIEF_MAX_CHARS)
     framework: Literal["html", "react"] = "html"           # react = React + Vite + TypeScript output
     mode: Literal["automatic", "manual", "hybrid"] | None = None   # set -> technology selection engine (see /stack/catalog)
     prefs: dict[str, str | None] = Field(default_factory=dict)
@@ -189,7 +191,15 @@ def generate(pid: str, force: bool = False):
 # ---------------- previews, screenshots ----------------
 from fastapi.responses import FileResponse  # noqa: E402
 
-EDITABLE = {"html", "css", "js", "json", "md", "svg", "txt"}
+# Text/source formats the IDE can safely read and save. ProjectFiles still blocks secret paths,
+# path traversal, internal agent files, and writes to protected directories.
+EDITABLE = {
+    "html", "htm", "css", "scss", "sass", "less", "js", "jsx", "mjs", "cjs", "ts", "tsx",
+    "json", "jsonc", "md", "mdx", "svg", "txt", "xml", "yml", "yaml", "toml", "py", "sql",
+    "sh", "bat", "ps1", "vue", "svelte", "go", "rs", "java", "kt", "php", "rb", "example",
+    "sample", "template", "dist", "properties", "ini", "conf", "gitignore", "dockerignore",
+}
+SPECIAL_EDITABLE_FILES = {"dockerfile", "makefile", "procfile", ".gitignore", ".dockerignore", ".editorconfig"}
 
 
 class SaveFile(BaseModel):
@@ -197,16 +207,94 @@ class SaveFile(BaseModel):
     content: str = Field(max_length=config.MAX_FILE_BYTES)
 
 
+class CreateFile(BaseModel):
+    path: str = Field(min_length=1, max_length=300)
+    content: str = Field(default="", max_length=config.MAX_FILE_BYTES)
+
+
 class EditReq(BaseModel):
     section: str = Field(min_length=1, max_length=20)
-    instruction: str = Field(min_length=3, max_length=500)
+    instruction: str = Field(min_length=3, max_length=EDIT_REPAIR_PROMPT_MAX_CHARS)
+
+
+def _ide_file_target(pf: ProjectFiles, path: str) -> tuple[str, Path]:
+    """Validate a relative text-file path for IDE create/delete operations."""
+    rel = path.replace("\\", "/").strip()
+    parts = rel.split("/")
+    if not rel or len(rel) > 300 or any(part in ("", ".", "..") for part in parts):
+        raise ValueError("enter a valid project-relative file path")
+    if security.is_agent_path(rel):
+        raise ValueError("the .agent directory is protected")
+    filename = parts[-1].lower()
+    extension = filename.rsplit(".", 1)[-1] if "." in filename else ""
+    if extension not in EDITABLE and filename not in SPECIAL_EDITABLE_FILES:
+        raise ValueError("unsupported file type; create a supported text/source file")
+    try:
+        target = pf._guard(rel, write=True)
+    except ValueError as e:
+        raise ValueError(str(e)) from e
+    # Do not follow symlinks in generated projects, even if they resolve inside the project.
+    cursor = pf.root
+    for part in parts:
+        cursor = cursor / part
+        if cursor.is_symlink():
+            raise ValueError("symbolic links cannot be modified through the IDE")
+    return rel, target
+
+
+@app.post("/projects/{pid}/file")
+def create_file(pid: str, body: CreateFile):
+    _get(pid)
+    _idle(pid)
+    pf = ProjectFiles(pid)
+    try:
+        rel, target = _ide_file_target(pf, body.path)
+    except ValueError as e:
+        raise HTTPException(400, redact(str(e)))
+    if len(body.content.encode("utf-8")) > config.MAX_FILE_BYTES:
+        raise HTTPException(413, "file too large")
+    if target.exists():
+        raise HTTPException(409, "a file or directory already exists at that path")
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # Exclusive create prevents accidentally overwriting an existing file if requests race.
+        with target.open("x", encoding="utf-8", newline="") as stream:
+            stream.write(body.content)
+    except FileExistsError:
+        raise HTTPException(409, "a file or directory already exists at that path")
+    except OSError as e:
+        raise HTTPException(400, redact(f"could not create file: {e.__class__.__name__}"))
+    return {"path": rel, "content": body.content, "issues": validate_file(rel, body.content)}
+
+
+@app.delete("/projects/{pid}/file")
+def delete_file(pid: str, path: str):
+    _get(pid)
+    _idle(pid)
+    pf = ProjectFiles(pid)
+    try:
+        rel, target = _ide_file_target(pf, path)
+    except ValueError as e:
+        raise HTTPException(400, redact(str(e)))
+    if not target.exists():
+        raise HTTPException(404, "file not found")
+    if not target.is_file():
+        raise HTTPException(400, "only files can be deleted; directories are not supported")
+    try:
+        target.unlink()
+    except OSError as e:
+        raise HTTPException(400, redact(f"could not delete file: {e.__class__.__name__}"))
+    return {"deleted": rel}
 
 
 @app.put("/projects/{pid}/file")
 def save_file(pid: str, body: SaveFile):
     _get(pid)
     _idle(pid)
-    if security.is_agent_path(body.path) or body.path.rsplit(".", 1)[-1].lower() not in EDITABLE:
+    rel = body.path.replace("\\", "/")
+    filename = rel.rsplit("/", 1)[-1].lower()
+    extension = filename.rsplit(".", 1)[-1] if "." in filename else ""
+    if security.is_agent_path(rel) or (extension not in EDITABLE and filename not in SPECIAL_EDITABLE_FILES):
         raise HTTPException(400, "path not editable")
     try:
         ProjectFiles(pid).write(body.path, body.content)
@@ -216,12 +304,12 @@ def save_file(pid: str, body: SaveFile):
 
 
 @app.post("/projects/{pid}/verify")
-def verify(pid: str, repair: bool = True):
+def verify(pid: str, repair: bool = True, deep: bool = False):
     _get(pid)
     _idle(pid)
     from backend.agent import orchestrator
     try:
-        return orchestrator.verify(pid, do_repair=repair)
+        return orchestrator.verify(pid, do_repair=repair, deep=deep)
     except (RuntimeError, ValueError) as e:
         raise HTTPException(500, redact(str(e)))
 

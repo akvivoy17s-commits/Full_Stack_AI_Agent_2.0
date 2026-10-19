@@ -1,11 +1,12 @@
 import hashlib
 import os
 import re
+import tempfile
 from pathlib import Path
 from backend.config import GENERATED_DIR, MAX_FILE_BYTES
 
-IGNORE = {".agent", "node_modules", ".git", "dist"}
-NO_WRITE_DIRS = {"node_modules", ".git"}               # never written through this API
+IGNORE = {".agent", "node_modules", ".git", "dist", ".venv", "venv", "__pycache__", ".pytest_cache", "build", "target"}
+NO_WRITE_DIRS = {"node_modules", ".git", ".venv", "venv", "__pycache__", "dist", "build", "target"}  # generated tools do not overwrite installed/build outputs
 SAFE_ENV_SUFFIX = (".example", ".sample", ".template", ".dist")
 SECRET_EXT = {".pem", ".key", ".p12", ".pfx", ".keystore", ".jks"}
 SECRET_NAMES = {"id_rsa", "id_ed25519", "id_ecdsa", ".npmrc", ".pypirc", ".netrc", "credentials.json", "serviceaccount.json"}
@@ -26,8 +27,19 @@ class ProjectFiles:
     def __init__(self, project_id: str):
         if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", project_id):
             raise ValueError("invalid project id")
-        self.root = (GENERATED_DIR / project_id).resolve()
-        self.root.mkdir(parents=True, exist_ok=True)
+        # A project id is one path segment, and the resolved project directory must
+        # remain a direct child of GENERATED_DIR. Never trust a pre-existing symlink
+        # at generated_projects/<id>.
+        base = Path(GENERATED_DIR).resolve()
+        candidate = base / project_id
+        if candidate.is_symlink():
+            raise ValueError("project directory may not be a symlink")
+        candidate.mkdir(parents=True, exist_ok=True)
+        if candidate.is_symlink():
+            raise ValueError("project directory may not be a symlink")
+        self.root = candidate.resolve()
+        if self.root.parent != base:
+            raise ValueError("project directory escapes generated projects")
 
     def _safe(self, rel: str) -> Path:
         r = rel.replace("\\", "/")
@@ -42,7 +54,7 @@ class ProjectFiles:
         p = self._safe(rel)
         if is_secret(rel):
             raise ValueError("protected file (secrets)")
-        if write and NO_WRITE_DIRS & set(rel.replace("\\", "/").split("/")):
+        if write and NO_WRITE_DIRS & {part.lower() for part in rel.replace("\\", "/").split("/")}:
             raise ValueError("protected directory")
         return p
 
@@ -51,9 +63,19 @@ class ProjectFiles:
             raise ValueError("file too large")
         p = self._guard(rel, write=True)
         p.parent.mkdir(parents=True, exist_ok=True)
-        tmp = p.with_name(p.name + ".tmp")                 # atomic write: temp file + replace
-        tmp.write_text(content, encoding="utf-8")
-        os.replace(tmp, p)
+        # Use a unique temporary file in the destination directory. A predictable
+        # `<name>.tmp` path could already be a symlink and redirect the write outside
+        # the project before os.replace() is reached.
+        fd, tmp_name = tempfile.mkstemp(prefix=f".{p.name}.", suffix=".tmp", dir=str(p.parent))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="") as f:
+                f.write(content)
+            os.replace(tmp_name, p)
+        finally:
+            try:
+                os.unlink(tmp_name)
+            except OSError:
+                pass
         return self.hash(rel)
 
     def read(self, rel: str, max_chars: int | None = None) -> str:

@@ -1,10 +1,10 @@
 import re
 from backend import config
-from backend.agent import intent, prompts, llm, schemas
+from backend.agent import intent, prompts, llm, schemas, prompt_context
 from backend.memory import task_memory
 from backend.engines import design_engine, animation_engine
 
-MAX_SECTIONS = 6
+MAX_SECTIONS = 6  # Keep per-section model calls bounded for local 7B models
 # ----------------------------------------------------------------
 # LAYOUT CONFIGURATION
 # Layout -> (allowed section IDs, fallback plan)
@@ -353,7 +353,11 @@ APP_SHELL = {
 }
 
 
-KIND_LAYOUT = {"dashboard": "dashboard", "management": "app", "cms": "app", "portfolio": "portfolio"}
+KIND_LAYOUT = {
+    "dashboard": "dashboard", "management": "app", "cms": "app", "portfolio": "portfolio",
+    "ecommerce": "ecommerce", "chat": "community", "social": "community",
+    "chatbot": "saas", "site": "business", "landing": "landing",
+}
 APP_INTENT = re.compile(r"\b(app|application|web app|todo|to-do|task manager|notes? app|note[- ]taking|tracker|planner|record manager|crud|admin panel|management system|crm|inventory|booking system|student portal|attendance|budget app|expense tracker|content management|calculator)\b", re.I)
 
 
@@ -363,18 +367,34 @@ def layout_for(brief: str, kind: str | None = None) -> str:
     from backend.stack.analyze import split_style
     user_text, style = split_style(brief)
     s = user_text.lower()
+    # Explicit landing-page language wins over the richer multi-page layout; otherwise
+    # honor the rule-based domain classifier instead of silently falling back to landing.
     if intent.MARKETING_PROMPT.search(s):
         return "portfolio" if "portfolio" in s else "landing"
-    if kind == "portfolio":
+    if kind == "portfolio" or style == "interactive portfolio":
+        return "portfolio"
+    if re.search(r"\b(?:login|log[ -]?in|sign[ -]?in|sign[ -]?up|registration|register|forgot password|reset password)\s+(?:page|screen|form|ui|interface)\b", s):
+        return "authentication"
+    if "portfolio" in s and not intent.is_app_prompt(s, allow_dashboard=False):
         return "portfolio"
     if kind in ("management", "cms"):
         return "app"
     if kind == "dashboard" or "analytics" in s or style == "analytics dashboard":
         return "dashboard"
+    if kind in KIND_LAYOUT and kind not in ("generic", "local"):
+        return KIND_LAYOUT[kind]
+    if style == "e-commerce storefront" or re.search(r"\b(storefront|online store|online shop|e-?commerce)\b", s):
+        return "ecommerce"
+    if re.search(r"\b(api documentation|developer documentation|documentation site|docs portal|api reference)\b", s):
+        return "documentation"
+    if re.search(r"\b(blog|magazine|news site|article publishing)\b", s):
+        return "blog"
+    if re.search(r"\b(online course|course platform|learning platform|e-learning)\b", s):
+        return "education"
+    if re.search(r"\b(community site|forum|member community|social network)\b", s):
+        return "community"
     if kind in ("local", "generic") and intent.is_app_prompt(s, allow_dashboard=False):
         return "app"
-    if "portfolio" in s or style == "interactive portfolio":
-        return "portfolio"
     return "landing"
 
 
@@ -414,17 +434,30 @@ def blueprint(state) -> dict:
     autopilot = (state.stack_config or {}).get("autopilot") or {}
     state.layout = "app" if autopilot.get("app_shell") else layout_for(state.brief, kind)
     allowed = LAYOUTS[state.layout][0]
-    user = f"{state.brief[:1500]}\nLAYOUT: {state.layout}\nALLOWED SECTIONS: {','.join(allowed)}"
+    # Blueprint is the single prompt-analysis call: pass the whole accepted brief so
+    # late-listed constraints are considered before section generation starts.
+    user = (f"ORIGINAL USER PROMPT (read all of it; maximum 6000 characters):\n{state.brief[:6000]}"
+            f"\nLAYOUT: {state.layout}\nALLOWED SECTIONS (choose only from this list): {','.join(allowed)}"
+            f"\nSELECTED STACK / TOOLS: UI={state.stack}; config={str(state.stack_config or {})[:650]}")
     if state.spec_digest:
-        user += f"\nAPP: {state.spec_digest[:240]}"
-    ctx = task_memory.context(state.project_id, 500)       # repo map + open work of a project that already has files/history
+        user += f"\nRULE-BASED APP SPEC SUMMARY: {state.spec_digest[:350]}"
+    ctx = task_memory.context(state.project_id, 350)       # small repo map for continuing projects
     if ctx:
-        user += f"\nPROJECT NOW:\n{ctx}"
+        user += f"\nEXISTING PROJECT CONTEXT (preserve compatible conventions):\n{ctx}"
     data, usage = llm.call_json("blueprint", prompts.BLUEPRINT, user,
-                                None, 700 if state.layout == "app" else 1200, schema=schemas.BlueprintOut)
+                                None, 900 if state.layout == "app" else 1350, schema=schemas.BlueprintOut)
+    chosen_sections = _ids(data.get("sections"), state.layout)
+    page_blueprint = data.get("pages") if isinstance(data.get("pages"), list) else []
+    components = [str(x).strip()[:80] for x in data.get("components", [])
+                  if isinstance(x, str) and x.strip()][:16]
+    features = [str(x).strip()[:140] for x in data.get("features", [])
+                if isinstance(x, str) and x.strip()][:20]
+    architecture = data.get("architecture") if isinstance(data.get("architecture"), dict) else {}
     state.plan = {"stack": state.stack, "layout": state.layout, "brand": brand_for(data.get("brand"), state.brief),
-                  "sections": _ids(data.get("sections"), state.layout), "pages": ["index"],
-                  "notes": str(data.get("notes", ""))[:200]}
+                  "sections": chosen_sections, "pages": ["index"], "page_blueprint": page_blueprint[:8],
+                  "components": components, "features": features, "architecture": architecture,
+                  "blueprint_notes": str(data.get("notes", ""))[:500],
+                  "model_stack": str(data.get("stack", ""))[:100]}
     state.design = design_engine.normalize(data.get("design"))
     state.motion = animation_engine.normalize(data.get("motion"))
     return usage
