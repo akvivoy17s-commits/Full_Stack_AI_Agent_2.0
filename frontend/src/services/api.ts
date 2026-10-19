@@ -46,16 +46,33 @@ export interface Task {
 export interface TaskEvent { id: number; ts: number; level: 'info' | 'warn' | 'error'; stage: string; msg: string }
 export interface Checkpoint { id: string; label: string; task_id: string | null; size: number; created_at: number }
 export interface Summary { task_id: string; created_at: number; summary: { kind: string; phase: string; issues: string[]; browser: string; repairs: number; sections: string } }
-export interface TaskRequest { kind: 'generate' | 'verify' | 'edit' | 'test'; force?: boolean; confirm?: boolean; repair?: boolean; section?: string; instruction?: string }
+export interface TaskRequest { kind: 'generate' | 'verify' | 'edit' | 'test'; force?: boolean; confirm?: boolean; repair?: boolean; section?: string; deep?: boolean; instruction?: string }
 
 export type CheckStatus = 'passed' | 'failed' | 'skipped'
 export interface Check { name: string; viewport: string; status: CheckStatus; detail: string }
 export interface A11yFinding { rule: string; sid: string; msg: string }
 export interface RepairRow { attempt: number; sid: string; issue: string; method: string; outcome: string; task_id?: string; created_at?: number }
+export interface ReportBackendIssue { file?: string | null; line?: number | null; message: string }
+export interface ReportBackendVerification {
+  deep: boolean
+  note: string
+  checks: Check[]
+  issues: ReportBackendIssue[]
+  blocking_issues: ReportBackendIssue[]
+}
+export interface ReportRepairSummary {
+  section_repair_loops: number
+  unresolved_count: number
+  file_repair?: { status?: string; attempts?: number; stop?: string } | null
+}
+export interface ReportIssue { file?: string | null; line?: number | null; sid?: string | null; msg: string }
 export interface Report {
   checks: Check[]; a11y: A11yFinding[]; notes: string[]; repairs: RepairRow[]
   counts: Record<CheckStatus, number>
   vision: { status: string; note: string; findings: { viewport: string; sid: string; msg: string }[] }
+  backend_verification?: ReportBackendVerification
+  repair_summary?: ReportRepairSummary
+  issues?: ReportIssue[]
 }
 export type Framework = 'html' | 'react'
 export type StackMode = 'automatic' | 'manual' | 'hybrid'

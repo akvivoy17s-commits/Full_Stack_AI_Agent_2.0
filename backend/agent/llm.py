@@ -373,7 +373,7 @@ def call_json(kind: str, system: str, user: str, model: str | None = None, max_t
 def _mock(kind: str, user: str) -> dict:
     if kind == "blueprint":
         return {"brand": "Mockly", "stack": "html", "sections": ["hero", "features", "showcase", "pricing", "cta"],
-                "pages": ["index"], "notes": "mock",
+                "pages": [{"id": "index", "title": "Home", "path": "/"}], "notes": "mock",
                 "design": {"colors": {"bg": "#0b0b14", "fg": "#f5f5ff", "primary": "#7c5cff",
                                       "accent": "#00d4ff", "muted": "#9a9ab5"},
                            "fonts": {"head": "Poppins", "body": "Inter"}, "radius": 16, "spacing": 8,
