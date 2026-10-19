@@ -203,7 +203,7 @@ export default function CodePanel({ id, files, version, onSaved, projectName }: 
   const deleteCurrentFile = async () => {
     if (!current) return
     const extra = dirty ? '\nUnsaved edits will also be lost.' : ''
-    if (!window.confirm(`Permanently delete \"${current}\"?${extra}`)) return
+    if (!window.confirm(`Permanently delete "${current}"?${extra}`)) return
     setMsg('Deleting file…')
     try {
       await api.deleteFile(id, current)
